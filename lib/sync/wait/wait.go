@@ -7,7 +7,7 @@ import (
 
 //对sync.WaitGroup进行扩展，增加超时等待
 
-// Wait 类似于 sync.WaitGroup，但可以设置超时等待
+// Wait 封装了sync.WaitGroup，但可以设置超时等待
 type Wait struct {
 	wg sync.WaitGroup // 内嵌 sync.WaitGroup
 }
