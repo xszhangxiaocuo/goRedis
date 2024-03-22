@@ -31,7 +31,7 @@ func (b *BulkReply) ToBytes() []byte {
 	return []byte("$" + strconv.Itoa(len(b.Arg)) + CRLF + string(b.Arg) + CRLF)
 }
 
-// MultiBulkReply 字符串数组响应
+// MultiBulkReply 数组响应
 type MultiBulkReply struct {
 	Args [][]byte
 }
