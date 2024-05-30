@@ -105,7 +105,7 @@ func parse0(reader io.Reader, ch chan<- *Payload) {
 					state = readState{}
 					continue
 				}
-			} else { //非多行模式，msgtype也不是数组和字符串，即单行回复
+			} else { //非多行模式，msg的type也不是数组和字符串，即单行回复
 				result, err := parseSingleLineReply(msg)
 				ch <- &Payload{
 					Data: result,

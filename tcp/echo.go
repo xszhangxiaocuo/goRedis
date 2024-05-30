@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// EchoClient 用于测试的客户端
+// EchoClient 用于测试的客户端,将用户发送的消息回发
 type EchoClient struct {
 	Conn    net.Conn
 	Waiting wait.Wait
@@ -27,7 +27,7 @@ func (e *EchoClient) Close() error {
 }
 
 type EchoHandler struct {
-	activeConn sync.Map
+	activeConn sync.Map    //当前存活的连接
 	closing    atomic.Bool //用于判断当前是否处于关闭状态
 }
 
@@ -54,6 +54,7 @@ func (handler *EchoHandler) Handler(ctx context.Context, conn net.Conn) {
 			} else {
 				logger.Warn(err)
 			}
+			break
 		}
 		//增加一个事件计数
 		client.Waiting.Add(1)

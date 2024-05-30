@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"goRedis/config"
 	"goRedis/lib/logger"
+	"goRedis/resp/handler"
 	"goRedis/tcp"
 	"os"
 )
@@ -39,7 +40,7 @@ func main() {
 		&tcp.Config{
 			Address: fmt.Sprintf("%s:%d", config.Properties.Bind, config.Properties.Port),
 		},
-		tcp.NewEchoHandler())
+		handler.NewRESPHandler())
 
 	if err != nil {
 		logger.Warn(err)
