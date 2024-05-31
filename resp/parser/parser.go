@@ -150,6 +150,7 @@ func readLine(bufReader *bufio.Reader, state *readState) ([]byte, bool, error) {
 
 	if state.bulkLen == 0 { //说明当前要读取的不是字符串，直接根据\r\n进行切分
 		msg, err = bufReader.ReadBytes('\n')
+		logger.Info("msg:" + string(msg))
 		if err != nil { //io错误
 			logger.Error(err)
 			return nil, true, err
@@ -159,8 +160,10 @@ func readLine(bufReader *bufio.Reader, state *readState) ([]byte, bool, error) {
 			return nil, false, errors.New("protocol error:" + string(msg))
 		}
 	} else { //当前要读取的是字符串，不能根据\r\n切分，严格按照bulkLen的大小进行读取
+		msg = make([]byte, state.bulkLen+2)  //+2是因为要读取\r\n
 		_, err = io.ReadFull(bufReader, msg) //将bufReader中的数据全部塞到msg中
-		if err != nil {                      //io错误
+		logger.Info("msg:" + string(msg))
+		if err != nil { //io错误
 			logger.Error(err)
 			return nil, true, err
 		}
@@ -223,19 +226,19 @@ func parseBulkHeader(msg []byte, state *readState) error {
 
 // parseSingleLineReply 解析单行回复，示例：+OK\r\n	-err\r\n	:3\r\n
 func parseSingleLineReply(msg []byte) (resp.Reply, error) {
-	strings.TrimSuffix(string(msg), "\r\n") //删掉后缀\r\n
+	msg0 := strings.TrimSuffix(string(msg), "\r\n") //删掉后缀\r\n
 	var result resp.Reply
 
-	switch msg[0] { //判断回复类型
+	switch msg0[0] { //判断回复类型
 	case '+':
-		result = reply.NewStatusReply(string(msg[1:]))
+		result = reply.NewStatusReply(msg0[1:])
 	case '-':
-		result = reply.NewStandardErrReply(string(msg[1:]))
+		result = reply.NewStandardErrReply(msg0[1:])
 	case ':':
-		num, err := strconv.ParseInt(string(msg[1:]), 10, 32)
+		num, err := strconv.ParseInt(msg0[1:], 10, 32)
 		if err != nil {
 			logger.Warn(err)
-			return nil, errors.New("protocol error:" + string(msg))
+			return nil, errors.New("protocol error:" + msg0)
 		}
 		result = reply.NewIntReply(num)
 	}
