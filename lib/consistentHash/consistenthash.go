@@ -19,7 +19,7 @@ func (m *NodeMap) IsEmpty() bool {
 
 func NewNodeMap(hf HashFunc) *NodeMap {
 	if hf == nil {
-		hf = crc32.ChecksumIEEE //
+		hf = crc32.ChecksumIEEE //默认哈希函数
 	}
 
 	return &NodeMap{ //部分初始化
@@ -28,7 +28,7 @@ func NewNodeMap(hf HashFunc) *NodeMap {
 	}
 }
 
-func (m *NodeMap) AddNode(keys ...string) { //传入名称或地址
+func (m *NodeMap) AddNode(keys ...string) { //传入名称或地址。将节点加入到列表中并重新排序
 	for _, key := range keys {
 		if key == "" {
 			continue
