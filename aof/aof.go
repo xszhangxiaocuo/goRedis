@@ -12,12 +12,13 @@ import (
 
 type CmdLine = [][]byte
 
-const aofBufferSize = 1 << 16 // 65535，这么大吗？
+const aofBufferSize = 1 << 16
 
 type payload struct {
 	cmdLine CmdLine
 	dbIndex int
 }
+
 type AofHandler struct {
 	database    database.Database
 	aofChan     chan *payload //存储引擎写操作时，传递消息
