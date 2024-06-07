@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"goRedis/config"
+	_ "goRedis/database/cmd"
 	"goRedis/lib/logger"
 	"goRedis/resp/handler"
 	"goRedis/tcp"
