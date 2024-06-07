@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# 检查是否提供了IP地址和端口号参数，如果没有则使用默认值
+IP="${1:-localhost}"
+PORT="${2:-6379}"
+
 while true; do
     echo "Enter your command (or type 'exit' to quit):"
     read -r command
@@ -8,8 +12,7 @@ while true; do
         break
     fi
 
-    # Append CRLF to the command and send it to the server using nc
-    echo -ne "$command" | nc localhost 6379
+    echo -ne "$command" | nc "$IP" "$PORT"
 done
 
 echo "Exiting..."
