@@ -25,8 +25,7 @@ type RESPHandler struct {
 }
 
 func NewRESPHandler() *RESPHandler {
-	// TODO: 实现database接口类
-	db := database.NewEchoDatabase()
+	db := database.NewRedisDb(0)
 	return &RESPHandler{
 		db: db,
 	}
