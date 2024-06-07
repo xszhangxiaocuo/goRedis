@@ -1,7 +1,7 @@
 // Package reply 固定写死的响应
 package reply
 
-// PongReply pang响应
+// PongReply pong响应
 type PongReply struct {
 }
 
