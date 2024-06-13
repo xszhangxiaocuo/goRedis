@@ -19,6 +19,7 @@ func Ping(db *database.RedisDb, args [][]byte) resp.Reply {
 	return reply.NewPongReply()
 }
 
+// Echo 返回传入的参数
 func Echo(db *database.RedisDb, args [][]byte) resp.Reply {
 	return reply.NewStatusReply(string(args[0]))
 }
