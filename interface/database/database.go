@@ -13,3 +13,7 @@ type Database interface {
 type DataEntity struct {
 	Data any
 }
+
+func NewDataEntity(data any) *DataEntity {
+	return &DataEntity{data}
+}
