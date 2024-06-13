@@ -25,7 +25,7 @@ type RESPHandler struct {
 }
 
 func NewRESPHandler() *RESPHandler {
-	db := database.NewRedisDb(0)
+	db := database.NewDataBase()
 	return &RESPHandler{
 		db: db,
 	}
