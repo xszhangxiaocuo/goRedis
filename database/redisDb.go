@@ -12,14 +12,13 @@ import (
 
 // RedisDb Redis内核
 type RedisDb struct {
-	index int            // 数据库编号
-	data  interDict.Dict // 数据库存储的键值对
+	id   int            // 数据库编号
+	data interDict.Dict // 数据库存储的键值对
 }
 
-func NewRedisDb(index int) *RedisDb {
+func NewRedisDb() *RedisDb {
 	return &RedisDb{
-		index: index,
-		data:  dict.NewSyncDict(),
+		data: dict.NewSyncDict(),
 	}
 }
 
@@ -50,19 +49,23 @@ func (db *RedisDb) GetEntity(key string) (*database.DataEntity, bool) {
 	return entity, true
 }
 
-func (db *RedisDb) PutEntity(key string, entity *database.DataEntity) bool {
+func (db *RedisDb) GetData() interDict.Dict {
+	return db.data
+}
+
+func (db *RedisDb) PutEntity(key string, entity *database.DataEntity) int {
 	return db.data.Put(key, entity)
 }
 
-func (db *RedisDb) PutIfExists(key string, entity *database.DataEntity) bool {
+func (db *RedisDb) PutIfExists(key string, entity *database.DataEntity) int {
 	return db.data.PutIfExist(key, entity)
 }
 
-func (db *RedisDb) PutIfAbsent(key string, entity *database.DataEntity) bool {
+func (db *RedisDb) PutIfAbsent(key string, entity *database.DataEntity) int {
 	return db.data.PutIfAbsent(key, entity)
 }
 
-func (db *RedisDb) Remove(key string) bool {
+func (db *RedisDb) Remove(key string) int {
 	return db.data.Remove(key)
 }
 
@@ -70,9 +73,7 @@ func (db *RedisDb) Remove(key string) bool {
 func (db *RedisDb) RemoveAll(keys ...string) int {
 	count := 0
 	for _, key := range keys {
-		if db.Remove(key) {
-			count++
-		}
+		count += db.Remove(key)
 	}
 	return count
 }
@@ -84,6 +85,10 @@ func (db *RedisDb) Close() error {
 
 func (db *RedisDb) AfterClientClose(client resp.Connection) error {
 	return nil
+}
+
+func (db *RedisDb) SetId(id int) {
+	db.id = id
 }
 
 // 校验参数个数，命令本身也算一个参数，所有参数个数至少为1

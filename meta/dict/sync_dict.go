@@ -28,40 +28,41 @@ func (dict *SyncDict) Len() int {
 	return length
 }
 
-func (dict *SyncDict) Put(key string, val any) (result bool) {
+func (dict *SyncDict) Put(key string, val any) (result int) {
 	_, existed := dict.m.Load(key)
 	dict.m.Store(key, val)
-	result = true // 插入操作
-	if existed {  // 更新操作
-		result = false
+	result = 1   // 插入操作
+	if existed { // 更新操作
+		result = 0
 	}
 	return
 }
 
-func (dict *SyncDict) PutIfAbsent(key string, val any) (result bool) {
+func (dict *SyncDict) PutIfAbsent(key string, val any) (result int) {
 	_, existed := dict.m.Load(key)
 	if existed { // key存在，不插入
-		return false
+		return 0
 	}
 	dict.m.Store(key, val)
-	return true
+	return 1
 }
 
-func (dict *SyncDict) PutIfExist(key string, val any) (result bool) {
+func (dict *SyncDict) PutIfExist(key string, val any) (result int) {
 	_, existed := dict.m.Load(key)
 	if existed { // key存在，更新
 		dict.m.Store(key, val)
-		return true
+		return 1
 	}
-	return false
+	return 0
 }
 
-func (dict *SyncDict) Remove(key string) (result bool) {
-	_, result = dict.m.Load(key)
-	if result {
+func (dict *SyncDict) Remove(key string) (result int) {
+	_, exists := dict.m.Load(key)
+	if exists {
 		dict.m.Delete(key)
+		return 1
 	}
-	return
+	return 0
 }
 
 func (dict *SyncDict) Keys() []string {
