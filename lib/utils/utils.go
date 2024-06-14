@@ -82,3 +82,14 @@ func ConvertRange(start int64, end int64, size int64) (int, int) {
 	}
 	return int(start), int(end) // 返回转换后的区间
 }
+
+// ValidateArgs 校验参数个数，命令本身也算一个参数，所有参数个数至少为1
+func ValidateArgs(args [][]byte, expected int) bool {
+	argNum := len(args)
+	if expected >= 0 { // 定长参数
+		return argNum == expected
+	}
+
+	// 最少参数，比如-2表示至少2个参数
+	return argNum >= -expected
+}
