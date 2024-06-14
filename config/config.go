@@ -62,6 +62,20 @@ func (p *ServerProperties) AnnounceAddress() string {
 	return p.AnnounceHost + ":" + strconv.Itoa(p.Port)
 }
 
+func (p *ServerProperties) GetConfig(cfgName string) string {
+	cfgName = strings.ToLower(cfgName)
+	switch cfgName {
+	case "bind":
+		return p.Bind
+	case "port":
+		return strconv.Itoa(p.Port)
+	case "databases":
+		return strconv.Itoa(p.Databases)
+	default:
+		return ""
+	}
+}
+
 // Properties holds global config properties
 var Properties *ServerProperties   // 全局配置属性
 var EachTimeServerInfo *ServerInfo // 服务器信息
