@@ -9,9 +9,10 @@ import (
 
 type RESPConn struct {
 	conn         net.Conn
-	waitingReply wait.Wait  //等待所有处理完成
-	mu           sync.Mutex //每个连接要加锁
-	selectedDB   int        //标记当前连接正在使用的数据库id
+	waitingReply wait.Wait  // 等待所有处理完成
+	mu           sync.Mutex // 每个连接要加锁
+	selectedDB   int        // 标记当前连接正在使用的数据库id
+	name         []byte     // 当前连接的名字，由客户端自定义，默认为空
 }
 
 // NewRESPConn 创建一个新的RESPConn
@@ -56,4 +57,14 @@ func (r *RESPConn) GetDBIndex() int {
 // SelectDB 选择数据库
 func (r *RESPConn) SelectDB(id int) {
 	r.selectedDB = id
+}
+
+// SetName 设置连接名字
+func (r *RESPConn) SetName(name []byte) {
+	r.name = name
+}
+
+// GetName 获取连接名字
+func (r *RESPConn) GetName() []byte {
+	return r.name
 }
