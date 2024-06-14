@@ -12,7 +12,7 @@ func init() {
 }
 
 // Ping 传入的args不包括命令名，只传入参数
-func Ping(db *database.RedisDb, args [][]byte) resp.Reply {
+func Ping(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply {
 	if len(args) > 0 {
 		return reply.NewStatusReply(string(args[0]))
 	}
@@ -20,6 +20,6 @@ func Ping(db *database.RedisDb, args [][]byte) resp.Reply {
 }
 
 // Echo 返回传入的参数
-func Echo(db *database.RedisDb, args [][]byte) resp.Reply {
+func Echo(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply {
 	return reply.NewStatusReply(string(args[0]))
 }

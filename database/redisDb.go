@@ -5,6 +5,7 @@ import (
 	interDict "goRedis/interface/meta/dict"
 	"goRedis/interface/resp"
 	"goRedis/lib/logger"
+	"goRedis/lib/utils"
 	"goRedis/meta/dict"
 	"goRedis/resp/reply"
 	"strings"
@@ -29,11 +30,11 @@ func (db *RedisDb) Exec(conn resp.Connection, cmdLine database.CmdLine) resp.Rep
 	if !ok { // 未找到命令
 		return reply.NewStandardErrReply("ERR unknown command '" + cmdName + "'")
 	}
-	if !validateArgs(cmdLine, cmd.args) { // 参数个数不匹配
+	if !utils.ValidateArgs(cmdLine, cmd.args) { // 参数个数不匹配
 		return reply.NewArgNumErrReply(cmdName)
 	}
 
-	return cmd.execFunc(db, cmdLine[1:])
+	return cmd.execFunc(conn, db, cmdLine[1:])
 }
 
 func (db *RedisDb) GetEntity(key string) (*database.DataEntity, bool) {
@@ -89,15 +90,4 @@ func (db *RedisDb) AfterClientClose(client resp.Connection) error {
 
 func (db *RedisDb) SetId(id int) {
 	db.id = id
-}
-
-// 校验参数个数，命令本身也算一个参数，所有参数个数至少为1
-func validateArgs(args [][]byte, expected int) bool {
-	argNum := len(args)
-	if expected >= 0 { // 定长参数
-		return argNum == expected
-	}
-
-	// 最少参数，比如-2表示至少2个参数
-	return argNum >= -expected
 }

@@ -18,7 +18,7 @@ func init() {
 }
 
 // Del 删除多个键值对，返回成功删除的个数
-func Del(db *database.RedisDb, args [][]byte) resp.Reply {
+func Del(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply {
 	keys := make([]string, len(args))
 	for i, arg := range args {
 		keys[i] = string(arg)
@@ -27,7 +27,7 @@ func Del(db *database.RedisDb, args [][]byte) resp.Reply {
 	return reply.NewIntReply(int64(count))
 }
 
-func Exists(db *database.RedisDb, args [][]byte) resp.Reply {
+func Exists(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply {
 	count := 0
 	for _, arg := range args {
 		_, existed := db.GetEntity(string(arg))
@@ -39,13 +39,13 @@ func Exists(db *database.RedisDb, args [][]byte) resp.Reply {
 }
 
 // FlushDb 清空数据库 TODO: 参数：SYNC同步刷新数据库，ASYNC异步刷新数据库
-func FlushDb(db *database.RedisDb, args [][]byte) resp.Reply {
+func FlushDb(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply {
 	db.Close()
 	return reply.NewOkReply()
 }
 
 // Type 返回存储在key的值的类型的字符串表示，可以返回的不同类型有：string、list、set、zset、hash
-func Type(db *database.RedisDb, args [][]byte) resp.Reply {
+func Type(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply {
 	entity, existed := db.GetEntity(string(args[0]))
 	if !existed {
 		return reply.NewStatusReply("none")
@@ -60,7 +60,7 @@ func Type(db *database.RedisDb, args [][]byte) resp.Reply {
 }
 
 // Rename 重命名一个key，如果新key已经存在，则进行覆盖
-func Rename(db *database.RedisDb, args [][]byte) resp.Reply {
+func Rename(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply {
 	src := string(args[0])
 	dest := string(args[1])
 	entity, exists := db.GetEntity(src)
@@ -73,7 +73,7 @@ func Rename(db *database.RedisDb, args [][]byte) resp.Reply {
 }
 
 // RenameNX 重命名一个key，如果新key已经存在，则什么都不做
-func RenameNX(db *database.RedisDb, args [][]byte) resp.Reply {
+func RenameNX(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply {
 	src := string(args[0])
 	dest := string(args[1])
 
@@ -91,7 +91,7 @@ func RenameNX(db *database.RedisDb, args [][]byte) resp.Reply {
 }
 
 // Keys 查找所有符合给定模式 pattern 的 key
-func Keys(db *database.RedisDb, args [][]byte) resp.Reply {
+func Keys(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply {
 	pattern := wildcard.CompilePattern(string(args[0])) // 解析通配符
 	result := make([][]byte, 0)
 	db.GetData().ForEach(func(key string, value interface{}) bool {

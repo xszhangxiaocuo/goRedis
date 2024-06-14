@@ -16,7 +16,7 @@ func init() {
 }
 
 // Get 获取key的值，如果key不存在则返回nil，如果key的值不是字符串则返回错误，字符串以[]byte形式存储
-func Get(db *database.RedisDb, args [][]byte) resp.Reply {
+func Get(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply {
 	key := string(args[0])
 	entity, exists := db.GetEntity(key)
 	if !exists {
@@ -30,7 +30,7 @@ func Get(db *database.RedisDb, args [][]byte) resp.Reply {
 }
 
 // Set 设置key的值为value TODO: 暂时只支持'set key value'，其他可选参数后续支持
-func Set(db *database.RedisDb, args [][]byte) resp.Reply {
+func Set(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply {
 	key := string(args[0])
 	value := args[1]
 	db.PutEntity(key, interdb.NewDataEntity(value))
@@ -38,7 +38,7 @@ func Set(db *database.RedisDb, args [][]byte) resp.Reply {
 }
 
 // SetNX 设置key的值为value，如果key已经存在则不做任何操作
-func SetNX(db *database.RedisDb, args [][]byte) resp.Reply {
+func SetNX(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply {
 	key := string(args[0])
 	value := args[1]
 	result := db.PutIfAbsent(key, interdb.NewDataEntity(value))
@@ -46,7 +46,7 @@ func SetNX(db *database.RedisDb, args [][]byte) resp.Reply {
 }
 
 // GetSet 设置key的值为value，并返回key的旧值
-func GetSet(db *database.RedisDb, args [][]byte) resp.Reply {
+func GetSet(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply {
 	key := string(args[0])
 	value := args[1]
 	entity, exists := db.GetEntity(key)
@@ -62,7 +62,7 @@ func GetSet(db *database.RedisDb, args [][]byte) resp.Reply {
 }
 
 // StrLen 返回key的字符串值的长度
-func StrLen(db *database.RedisDb, args [][]byte) resp.Reply {
+func StrLen(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply {
 	key := string(args[0])
 	entity, exists := db.GetEntity(key)
 	if !exists { // key不存在，返回0
