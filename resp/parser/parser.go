@@ -150,7 +150,7 @@ func readLine(bufReader *bufio.Reader, state *readState) ([]byte, bool, error) {
 
 	if state.bulkLen == 0 { //说明当前要读取的不是字符串，直接根据\r\n进行切分
 		msg, err = bufReader.ReadBytes('\n')
-		logger.Info("msg:" + string(msg))
+		//logger.Info("msg:" + string(msg))
 		if err != nil { //io错误
 			logger.Error(err)
 			return nil, true, err
@@ -162,7 +162,7 @@ func readLine(bufReader *bufio.Reader, state *readState) ([]byte, bool, error) {
 	} else { //当前要读取的是字符串，不能根据\r\n切分，严格按照bulkLen的大小进行读取
 		msg = make([]byte, state.bulkLen+2)  //+2是因为要读取\r\n
 		_, err = io.ReadFull(bufReader, msg) //将bufReader中的数据全部塞到msg中
-		logger.Info("msg:" + string(msg))
+		//logger.Info("msg:" + string(msg))
 		if err != nil { //io错误
 			logger.Error(err)
 			return nil, true, err
