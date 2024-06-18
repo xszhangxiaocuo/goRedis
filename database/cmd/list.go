@@ -93,7 +93,7 @@ func LRange(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Re
 	for i, item := range items {
 		result[i] = item.([]byte)
 	}
-	return reply.NewListReply(result)
+	return reply.NewMultiBulkReply(result)
 }
 
 // changeRange 将传入的下标转换为合法范围

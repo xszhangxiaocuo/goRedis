@@ -131,29 +131,3 @@ func (m *MapReply) ToBytes() []byte {
 	}
 	return buf.Bytes()
 }
-
-// ListReply 链表响应
-type ListReply struct {
-	Args [][]byte
-}
-
-func NewListReply(args [][]byte) *ListReply {
-	return &ListReply{
-		args,
-	}
-}
-
-func (l *ListReply) ToBytes() []byte {
-	var buf bytes.Buffer
-	argLen := len(l.Args)
-	buf.WriteString("*" + strconv.Itoa(argLen) + CRLF)
-	for i, arg := range l.Args {
-		if arg == nil { //写入一个NULL
-			buf.WriteString(string(nullBulkReplyBytes) + CRLF)
-		} else { //写入一个字符串
-			numStr := strconv.Itoa(i + 1)
-			buf.WriteString("$" + strconv.Itoa(len(arg)+len(numStr)+2) + CRLF + numStr + ") " + string(arg) + CRLF)
-		}
-	}
-	return buf.Bytes()
-}
