@@ -109,3 +109,51 @@ func (s *StandardErrReply) ToBytes() []byte {
 func IsErrReply(reply resp.Reply) bool {
 	return reply.ToBytes()[0] == '-'
 }
+
+// MapReply 字典响应， % 用于表示字典，后面跟着字典的键值对数量，然后是键值对，例如 %2\r\n$4\r\nkey1\r\n$5\r\nvalue\r\n$4\r\nkey2\r\n$5\r\nvalue\r\n
+type MapReply struct {
+	Args map[string]string
+}
+
+func NewMapReply(args map[string]string) *MapReply {
+	return &MapReply{
+		args,
+	}
+}
+
+func (m *MapReply) ToBytes() []byte {
+	var buf bytes.Buffer
+	argLen := len(m.Args)
+	buf.WriteString("%" + strconv.Itoa(argLen) + CRLF)
+	for key, value := range m.Args {
+		buf.WriteString("$" + strconv.Itoa(len(key)) + CRLF + key + CRLF)
+		buf.WriteString("$" + strconv.Itoa(len(value)) + CRLF + value + CRLF)
+	}
+	return buf.Bytes()
+}
+
+// ListReply 链表响应
+type ListReply struct {
+	Args [][]byte
+}
+
+func NewListReply(args [][]byte) *ListReply {
+	return &ListReply{
+		args,
+	}
+}
+
+func (l *ListReply) ToBytes() []byte {
+	var buf bytes.Buffer
+	argLen := len(l.Args)
+	buf.WriteString("*" + strconv.Itoa(argLen) + CRLF)
+	for i, arg := range l.Args {
+		if arg == nil { //写入一个NULL
+			buf.WriteString(string(nullBulkReplyBytes) + CRLF)
+		} else { //写入一个字符串
+			numStr := strconv.Itoa(i + 1)
+			buf.WriteString("$" + strconv.Itoa(len(arg)+len(numStr)+2) + CRLF + numStr + ") " + string(arg) + CRLF)
+		}
+	}
+	return buf.Bytes()
+}
