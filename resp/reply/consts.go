@@ -71,7 +71,7 @@ type EmptyMultiBulkReply struct {
 
 var emptyMultiBulkReply = new(EmptyMultiBulkReply)
 
-var emptyMultiBulkbytes = []byte("*0\r\n") //表示空字符串
+var emptyMultiBulkbytes = []byte("*-1\r\n") //表示空数组
 
 func NewEmptyMultiBulkReply() *EmptyMultiBulkReply {
 	return emptyMultiBulkReply
