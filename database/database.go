@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"goRedis/config"
 	"goRedis/interface/resp"
 	"goRedis/lib/logger"
@@ -30,7 +31,7 @@ func NewDataBase() *Database {
 func (db *Database) Exec(client resp.Connection, args [][]byte) resp.Reply {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Error("panic: %v", err)
+			logger.Error(fmt.Sprintf("panic: %v", err))
 		}
 	}()
 
