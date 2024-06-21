@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"goRedis/interface/tcp"
 	"goRedis/lib/logger"
+	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -37,7 +38,7 @@ func ListenAndServeWithSignal(cfg *Config, handler tcp.Handler) error {
 	if err != nil {
 		return err
 	}
-	logger.Info(fmt.Sprintf("tcp start listen at:%s", cfg.Address))
+	log.Println(fmt.Sprintf("tcp start listen at:%s", cfg.Address))
 	ListenAndServe(listener, handler, closeChan)
 	return nil
 }

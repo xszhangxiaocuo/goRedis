@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -98,24 +97,24 @@ func NewFileLogger(settings *Settings) (*Logger, error) {
 			},
 		},
 	}
-	go func() {
-		for e := range logger.entryChan {
-			logFilename := fmt.Sprintf("%s-%s.%s",
-				settings.Name,
-				time.Now().Format(settings.TimeFormat),
-				settings.Ext)
-			if path.Join(settings.Path, logFilename) != logger.logFile.Name() {
-				logFile, err := mustOpen(logFilename, settings.Path)
-				if err != nil {
-					panic("open log " + logFilename + " failed: " + err.Error())
-				}
-				logger.logFile = logFile
-				logger.logger = log.New(io.MultiWriter(os.Stdout, logFile), "", flags)
-			}
-			_ = logger.logger.Output(0, e.msg) // 将日志输出到标准输出和日志文件
-			logger.entryPool.Put(e)
-		}
-	}()
+	//go func() {
+	//	for e := range logger.entryChan {
+	//		logFilename := fmt.Sprintf("%s-%s.%s",
+	//			settings.Name,
+	//			time.Now().Format(settings.TimeFormat),
+	//			settings.Ext)
+	//		if path.Join(settings.Path, logFilename) != logger.logFile.Name() {
+	//			logFile, err := mustOpen(logFilename, settings.Path)
+	//			if err != nil {
+	//				panic("open log " + logFilename + " failed: " + err.Error())
+	//			}
+	//			logger.logFile = logFile
+	//			logger.logger = log.New(io.MultiWriter(os.Stdout, logFile), "", flags)
+	//		}
+	//		_ = logger.logger.Output(0, e.msg) // 将日志输出到标准输出和日志文件
+	//		logger.entryPool.Put(e)
+	//	}
+	//}()
 	return logger, nil
 }
 

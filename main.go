@@ -7,7 +7,6 @@ import (
 	"goRedis/lib/logger"
 	"goRedis/resp/handler"
 	"goRedis/tcp"
-	"net/http"
 	_ "net/http/pprof"
 	"os"
 )
@@ -16,7 +15,7 @@ const configFile string = "redis.conf"
 
 var defaultConfig = &config.ServerProperties{
 	Bind: "0.0.0.0",
-	Port: 6379,
+	Port: 9736,
 }
 
 // 判断文件是否存在
@@ -26,9 +25,9 @@ func fileExists(path string) bool {
 }
 
 func main() {
-	go func() {
-		http.ListenAndServe(":6060", nil)
-	}()
+	//go func() {
+	//	http.ListenAndServe(":6060", nil)
+	//}()
 
 	logger.Setup(&logger.Settings{
 		Path:       "log",
@@ -43,10 +42,9 @@ func main() {
 		config.Properties = defaultConfig
 	}
 
-	err := tcp.ListenAndServeWithGnet(
+	err := tcp.ListenAndServeWithSignal(
 		&tcp.Config{
-			Address:   fmt.Sprintf("%s:%d", config.Properties.Bind, config.Properties.Port),
-			Multicore: true,
+			Address: fmt.Sprintf("%s:%d", config.Properties.Bind, config.Properties.Port),
 		},
 		handler.NewRESPHandler())
 
