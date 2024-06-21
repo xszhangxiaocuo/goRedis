@@ -1,7 +1,6 @@
 package tcp
 
 import (
-	"context"
 	"fmt"
 	"goRedis/interface/tcp"
 	"goRedis/lib/logger"
@@ -55,7 +54,7 @@ func ListenAndServe(listener net.Listener, handler tcp.Handler, closeChan <-chan
 		_ = handler.Close()
 	}()
 
-	ctx := context.Background()
+	//ctx := context.Background()
 	var waitDone sync.WaitGroup //超时控制
 	for {
 		logger.Info("waiting link...")
@@ -69,7 +68,7 @@ func ListenAndServe(listener net.Listener, handler tcp.Handler, closeChan <-chan
 			defer func() {
 				waitDone.Wait()
 			}()
-			handler.Handler(ctx, conn)
+			//handler.Handler(ctx, conn)
 		}()
 	}
 	waitDone.Wait()

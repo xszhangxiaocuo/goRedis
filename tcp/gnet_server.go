@@ -1,23 +1,36 @@
 package tcp
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"github.com/panjf2000/gnet/v2"
 	"github.com/panjf2000/gnet/v2/pkg/logging"
 	"goRedis/interface/tcp"
+	"goRedis/resp/connection"
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 )
 
+type Command struct {
+	Args [][]byte // 命令参数
+	Raw  []byte   // 原始命令
+}
+
+type connBuffer struct {
+	buf     bytes.Buffer
+	command []Command
+}
+
 type GnetServer struct {
 	gnet.BuiltinEventEngine
-
-	eng       gnet.Engine
-	addr      string
-	multicore bool
+	ActiveConn sync.Map // 当前存活的连接
+	eng        gnet.Engine
+	addr       string
+	multicore  bool
 
 	handler   tcp.Handler
 	closeChan chan struct{}
@@ -30,26 +43,26 @@ func (gs *GnetServer) OnBoot(eng gnet.Engine) gnet.Action {
 }
 func (gs *GnetServer) OnOpen(c gnet.Conn) (out []byte, action gnet.Action) {
 	log.Printf("conn accept: %s\n", c.RemoteAddr())
+	gs.ActiveConn.Store(connection.NewRESPConn(c), struct{}{})
 	return nil, gnet.None
 }
 
 func (gs *GnetServer) OnClose(c gnet.Conn, err error) (action gnet.Action) {
 	log.Printf("conn close: %s\n", c.RemoteAddr())
+	gs.ActiveConn.Delete(c)
 	return gnet.Close
 }
 
 func (gs *GnetServer) OnTraffic(c gnet.Conn) (action gnet.Action) {
-	action = gnet.None
-	go func() {
-		<-gs.closeChan
-		c.Close()
-		gs.OnShutdown(gs.eng)
-		gs.handler.Close()
-		action = gnet.Shutdown
-	}()
 	ctx := context.Background()
-	gs.handler.Handler(ctx, c)
-	return
+	val, ok := gs.ActiveConn.Load(c)
+	client := val.(*connection.RESPConn)
+	if !ok {
+		logging.Infof("连接已经关闭：%s", c.RemoteAddr())
+		return gnet.None
+	}
+	gs.handler.Handler(ctx, client)
+	return gnet.None
 }
 
 func ListenAndServeWithGnet(cfg *Config, handler tcp.Handler) error {
@@ -68,13 +81,19 @@ func ListenAndServeWithGnet(cfg *Config, handler tcp.Handler) error {
 			closeChan <- struct{}{} //发送关闭信号
 		}
 	}()
+
 	gs := &GnetServer{
 		addr:      fmt.Sprintf("tcp://%s", cfg.Address),
 		multicore: cfg.Multicore,
 		handler:   handler,
 		closeChan: closeChan,
 	}
-
+	go func() {
+		<-gs.closeChan
+		gs.OnShutdown(gs.eng)
+		gs.handler.Close()
+	}()
 	logging.Infof("gnet server is starting at %s", cfg.Address)
+
 	return gnet.Run(gs, gs.addr, gnet.WithMulticore(gs.multicore))
 }

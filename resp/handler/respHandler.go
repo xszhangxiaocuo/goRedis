@@ -12,16 +12,14 @@ import (
 	"goRedis/resp/reply"
 	"io"
 	"strings"
-	"sync"
 	"sync/atomic"
 )
 
 const ErrClosed = "use of closed network connection" // 使用了一个已经关闭的连接
 
 type RESPHandler struct {
-	activeConn sync.Map             // 当前存活的连接
-	db         dbinterface.Database // database接口类，redis业务层
-	closing    atomic.Bool          // 用于判断当前是否处于关闭状态
+	db      dbinterface.Database // database接口类，redis业务层
+	closing atomic.Bool          // 用于判断当前是否处于关闭状态
 }
 
 func NewRESPHandler() *RESPHandler {
@@ -37,15 +35,8 @@ func (r *RESPHandler) Handler(ctx context.Context, conn gnet.Conn) {
 		_ = conn.Close()
 		return
 	}
-	var client *connection.RESPConn
-	c, exists := r.activeConn.Load(conn)
-	if !exists {
-		client = connection.NewRESPConn(conn) // 新建一个客户端连接
-		r.activeConn.Store(client, struct{}{})
-	} else {
-		client = c.(*connection.RESPConn)
-	}
-	payload, _, _ := parser.ParseStream(conn) // 解析客户端请求
+
+	payload, _, _ := parser.ParseStream(client) // 解析客户端请求
 
 	if payload.Err != nil { // 解析出错
 		// 如果是EOF或者连接被关闭，关闭连接
@@ -89,7 +80,7 @@ func (r *RESPHandler) Handler(ctx context.Context, conn gnet.Conn) {
 func (r *RESPHandler) Close() error {
 	logger.Info("handler shutting down")
 	r.closing.Store(true)                                  // 设置关闭状态
-	r.activeConn.Range(func(key, value interface{}) bool { // 关闭所有连接
+	r.ActiveConn.Range(func(key, value interface{}) bool { // 关闭所有连接
 		client := value.(*connection.RESPConn)
 		_ = client.Close()
 		return true
@@ -102,5 +93,5 @@ func (r *RESPHandler) Close() error {
 func (r *RESPHandler) closeClient(client *connection.RESPConn) {
 	_ = client.Close()            // 关闭客户端连接
 	r.db.AfterClientClose(client) // 关闭后连接后的清理操作
-	r.activeConn.Delete(client)   // 删除连接
+	r.ActiveConn.Delete(client)   // 删除连接
 }

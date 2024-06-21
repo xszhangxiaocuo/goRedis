@@ -1,20 +1,18 @@
 package connection
 
 import (
-	"goRedis/lib/sync/wait"
+	"github.com/panjf2000/gnet/v2"
 	"net"
-	"time"
 )
 
 type RESPConn struct {
-	conn         net.Conn
-	waitingReply wait.Wait // 等待所有处理完成
-	selectedDB   int       // 标记当前连接正在使用的数据库id
-	name         []byte    // 当前连接的名字，由客户端自定义，默认为空
+	conn       gnet.Conn
+	selectedDB int    // 标记当前连接正在使用的数据库id
+	name       []byte // 当前连接的名字，由客户端自定义，默认为空
 }
 
 // NewRESPConn 创建一个新的RESPConn
-func NewRESPConn(conn net.Conn) *RESPConn {
+func NewRESPConn(conn gnet.Conn) *RESPConn {
 	return &RESPConn{
 		conn: conn,
 	}
@@ -27,7 +25,6 @@ func (r *RESPConn) RemoteAddr() net.Addr {
 
 // Close 关闭连接
 func (r *RESPConn) Close() error {
-	r.waitingReply.WaitWithTimeout(10 * time.Second) //等待10s超时
 	return r.conn.Close()
 }
 
@@ -36,10 +33,6 @@ func (r *RESPConn) Write(bytes []byte) error {
 	if len(bytes) == 0 {
 		return nil
 	}
-	r.waitingReply.Add(1)
-	defer func() {
-		r.waitingReply.Done()
-	}()
 	_, err := r.conn.Write(bytes)
 
 	return err
