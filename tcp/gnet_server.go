@@ -1,12 +1,12 @@
 package tcp
 
 import (
+	"context"
 	"fmt"
 	"github.com/panjf2000/gnet/v2"
+	"github.com/panjf2000/gnet/v2/pkg/logging"
 	"goRedis/interface/tcp"
-	"goRedis/lib/logger"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,29 +19,37 @@ type GnetServer struct {
 	addr      string
 	multicore bool
 
-	handler tcp.Handler
+	handler   tcp.Handler
+	closeChan chan struct{}
 }
 
-func (es *GnetServer) OnBoot(eng gnet.Engine) gnet.Action {
-	es.eng = eng
-	log.Printf("echo server with multi-core=%t is listening on %s\n", es.multicore, es.addr)
+func (gs *GnetServer) OnBoot(eng gnet.Engine) gnet.Action {
+	gs.eng = eng
+	log.Printf("echo server with multi-core=%t is listening on %s\n", gs.multicore, gs.addr)
 	return gnet.None
 }
-func (es *GnetServer) OnOpen(c gnet.Conn) (out []byte, action gnet.Action) {
+func (gs *GnetServer) OnOpen(c gnet.Conn) (out []byte, action gnet.Action) {
 	log.Printf("conn accept: %s\n", c.RemoteAddr())
 	return nil, gnet.None
 }
 
-func (es *GnetServer) OnClose(c gnet.Conn, err error) (action gnet.Action) {
+func (gs *GnetServer) OnClose(c gnet.Conn, err error) (action gnet.Action) {
 	log.Printf("conn close: %s\n", c.RemoteAddr())
-	c.Close()
-	return gnet.None
+	return gnet.Close
 }
 
-func (es *GnetServer) OnTraffic(c gnet.Conn) gnet.Action {
-	buf, _ := c.Next(-1)
-	c.Write(buf)
-	return gnet.None
+func (gs *GnetServer) OnTraffic(c gnet.Conn) (action gnet.Action) {
+	action = gnet.None
+	go func() {
+		<-gs.closeChan
+		c.Close()
+		gs.OnShutdown(gs.eng)
+		gs.handler.Close()
+		action = gnet.Shutdown
+	}()
+	ctx := context.Background()
+	gs.handler.Handler(ctx, c)
+	return
 }
 
 func ListenAndServeWithGnet(cfg *Config, handler tcp.Handler) error {
@@ -60,11 +68,13 @@ func ListenAndServeWithGnet(cfg *Config, handler tcp.Handler) error {
 			closeChan <- struct{}{} //发送关闭信号
 		}
 	}()
-	listener, err := net.Listen("tcp", cfg.Address)
-	if err != nil {
-		return err
+	gs := &GnetServer{
+		addr:      fmt.Sprintf("tcp://%s", cfg.Address),
+		multicore: cfg.Multicore,
+		handler:   handler,
+		closeChan: closeChan,
 	}
-	logger.Info(fmt.Sprintf("tcp start listen at:%s", cfg.Address))
-	ListenAndServe(listener, handler, closeChan)
-	return nil
+
+	logging.Infof("gnet server is starting at %s", cfg.Address)
+	return gnet.Run(gs, gs.addr, gnet.WithMulticore(gs.multicore))
 }

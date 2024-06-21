@@ -34,94 +34,65 @@ func (r *readState) finished() bool {
 	return r.expectedArgsCount > 0 && len(r.args) == r.expectedArgsCount
 }
 
-// ParseStream 对上层暴露的解析器接口，异步并发地执行解析器，通过channel传递解析结果
-func ParseStream(reader io.Reader) <-chan *Payload {
-	ch := make(chan *Payload)
-	go parse0(reader, ch)
-	return ch
-}
-
-func parse0(reader io.Reader, ch chan<- *Payload) {
+func ParseStream(reader io.Reader) (payload *Payload, ioerr bool, err error) {
 	defer func() {
-		if err := recover(); err != nil {
+		if ok := recover(); ok != nil {
 			logger.Error(string(debug.Stack()))
 		}
 	}()
 
 	bufReader := bufio.NewReader(reader)
-	var err error
 	var state readState
 	var msg []byte
 
 	for {
-		var ioErr bool
-		msg, ioErr, err = readLine(bufReader, &state)
+		msg, ioerr, err = readLine(bufReader, &state)
 		if err != nil {
-			if ioErr { //io错误，该进程结束
-				ch <- &Payload{
-					Err: err,
-				}
-				close(ch) //关闭channel
-				return
-			}
-			//非io错误，继续读取
-			ch <- &Payload{
+			return &Payload{
 				Err: err,
-			}
-			state = readState{} //清空解析器状态
-			continue
+			}, ioerr, err
 		}
 		//判断是否是多行解析模式
 		if !state.readingMultiLine {
 			if msg[0] == '*' { //数组
 				err = parseMultiBulkHeader(msg, &state)
 				if err != nil {
-					ch <- &Payload{
+					payload = &Payload{
 						Err: err,
 					}
-					state = readState{}
-					continue
+					return
 				}
 				if state.expectedArgsCount == 0 { //*0\r\n 返回空数组
-					ch <- &Payload{
+					payload = &Payload{
 						Data: reply.NewEmptyMultiBulkReply(),
 					}
-					state = readState{}
-					continue
+					return payload, false, nil
 				}
 			} else if msg[0] == '$' { //字符串
 				err = parseBulkHeader(msg, &state)
 				if err != nil {
-					ch <- &Payload{
+					return &Payload{
 						Err: err,
-					}
-					state = readState{}
-					continue
+					}, false, err
 				}
 				if state.bulkLen == -1 { //$-1\r\n返回null
-					ch <- &Payload{
+					return &Payload{
 						Data: reply.NewNullBulkReply(),
-					}
-					state = readState{}
-					continue
+					}, false, nil
 				}
 			} else { //非多行模式，msg的type也不是数组和字符串，即单行回复
 				result, err := parseSingleLineReply(msg)
-				ch <- &Payload{
+				return &Payload{
 					Data: result,
 					Err:  err,
-				}
-				state = readState{}
-				continue
+				}, false, nil
 			}
 		} else { //读取数组和字符串中的数据
 			err = readBody(msg, &state)
 			if err != nil {
-				ch <- &Payload{
+				return &Payload{
 					Err: errors.New("protocol error:" + string(msg)),
-				}
-				state = readState{}
-				continue
+				}, false, err
 			}
 			if state.finished() { //数据全部读取完毕
 				var result resp.Reply
@@ -130,12 +101,10 @@ func parse0(reader io.Reader, ch chan<- *Payload) {
 				} else if state.msgType == '$' { //字符串
 					result = reply.NewBulkReply(state.args[0])
 				}
-				ch <- &Payload{
+				return &Payload{
 					Data: result,
 					Err:  err,
-				}
-				state = readState{}
-				continue
+				}, false, nil
 			}
 
 		}

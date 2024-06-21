@@ -3,16 +3,14 @@ package connection
 import (
 	"goRedis/lib/sync/wait"
 	"net"
-	"sync"
 	"time"
 )
 
 type RESPConn struct {
 	conn         net.Conn
-	waitingReply wait.Wait  // 等待所有处理完成
-	mu           sync.Mutex // 每个连接要加锁
-	selectedDB   int        // 标记当前连接正在使用的数据库id
-	name         []byte     // 当前连接的名字，由客户端自定义，默认为空
+	waitingReply wait.Wait // 等待所有处理完成
+	selectedDB   int       // 标记当前连接正在使用的数据库id
+	name         []byte    // 当前连接的名字，由客户端自定义，默认为空
 }
 
 // NewRESPConn 创建一个新的RESPConn
@@ -38,11 +36,9 @@ func (r *RESPConn) Write(bytes []byte) error {
 	if len(bytes) == 0 {
 		return nil
 	}
-	r.mu.Lock()
 	r.waitingReply.Add(1)
 	defer func() {
 		r.waitingReply.Done()
-		r.mu.Unlock()
 	}()
 	_, err := r.conn.Write(bytes)
 
