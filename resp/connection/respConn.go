@@ -57,3 +57,7 @@ func (r *RESPConn) SetName(name []byte) {
 func (r *RESPConn) GetName() []byte {
 	return r.name
 }
+
+func (r *RESPConn) GetConn() gnet.Conn {
+	return r.conn
+}

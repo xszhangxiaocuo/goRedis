@@ -20,7 +20,7 @@ func HSet(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Repl
 	key := string(args[0])
 	entity, exists := db.GetEntity(key)
 	if !exists {
-		entity = idatabase.NewDataEntity(dict.NewSkipListDict())
+		entity = idatabase.NewDataEntity(dict.NewSyncDict())
 		db.PutEntity(key, entity)
 	}
 	data, ok := entity.Data.(idict.Dict)

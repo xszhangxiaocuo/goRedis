@@ -19,7 +19,7 @@ type RedisDb struct {
 
 func NewRedisDb() *RedisDb {
 	return &RedisDb{
-		data: dict.NewSkipListDict(),
+		data: dict.NewSyncDict(),
 	}
 }
 

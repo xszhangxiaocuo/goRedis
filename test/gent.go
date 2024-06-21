@@ -40,8 +40,8 @@ func (es *echoServer) OnTraffic(c gnet.Conn) gnet.Action {
 func main() {
 	var port int
 	var multicore bool
-	port = 9736
+	port = 9739
 	multicore = true
-	echo := &echoServer{addr: fmt.Sprintf("tcp://:%d", port), multicore: multicore}
+	echo := &echoServer{addr: fmt.Sprintf("tcp://0.0.0.0:%d", port), multicore: multicore}
 	log.Fatal(gnet.Run(echo, echo.addr, gnet.WithMulticore(multicore)))
 }

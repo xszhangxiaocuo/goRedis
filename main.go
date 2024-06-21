@@ -42,7 +42,10 @@ func main() {
 		config.Properties = defaultConfig
 	}
 
-	err := tcp.ListenAndServeWithGnet(
+	err := tcp.ListenAndServeWithGnet(&tcp.Options{
+		Multicore: true,
+		ReusePort: true,
+	},
 		&tcp.Config{
 			Address:   fmt.Sprintf("%s:%d", config.Properties.Bind, config.Properties.Port),
 			Multicore: true,
