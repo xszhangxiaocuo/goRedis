@@ -1,23 +1,50 @@
 package tcp
 
 import (
-	"context"
 	"fmt"
+	"github.com/panjf2000/gnet/v2"
 	"goRedis/interface/tcp"
 	"goRedis/lib/logger"
+	"log"
 	"net"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 )
 
-type Config struct {
-	Address   string //tcp监听端口
-	Multicore bool   // 是否多核运行
+type GnetServer struct {
+	gnet.BuiltinEventEngine
+
+	eng       gnet.Engine
+	addr      string
+	multicore bool
+
+	handler tcp.Handler
 }
 
-func ListenAndServeWithSignal(cfg *Config, handler tcp.Handler) error {
+func (es *GnetServer) OnBoot(eng gnet.Engine) gnet.Action {
+	es.eng = eng
+	log.Printf("echo server with multi-core=%t is listening on %s\n", es.multicore, es.addr)
+	return gnet.None
+}
+func (es *GnetServer) OnOpen(c gnet.Conn) (out []byte, action gnet.Action) {
+	log.Printf("conn accept: %s\n", c.RemoteAddr())
+	return nil, gnet.None
+}
+
+func (es *GnetServer) OnClose(c gnet.Conn, err error) (action gnet.Action) {
+	log.Printf("conn close: %s\n", c.RemoteAddr())
+	c.Close()
+	return gnet.None
+}
+
+func (es *GnetServer) OnTraffic(c gnet.Conn) gnet.Action {
+	buf, _ := c.Next(-1)
+	c.Write(buf)
+	return gnet.None
+}
+
+func ListenAndServeWithGnet(cfg *Config, handler tcp.Handler) error {
 	closeChan := make(chan struct{})
 	sigChan := make(chan os.Signal)
 	//syscall.SIGHUP：通常表示终端断开或者控制进程结束，常用于通知守护进程重新读取配置文件。
@@ -40,37 +67,4 @@ func ListenAndServeWithSignal(cfg *Config, handler tcp.Handler) error {
 	logger.Info(fmt.Sprintf("tcp start listen at:%s", cfg.Address))
 	ListenAndServe(listener, handler, closeChan)
 	return nil
-}
-
-func ListenAndServe(listener net.Listener, handler tcp.Handler, closeChan <-chan struct{}) {
-	go func() { //这个协程在用户强制关闭程序或系统kill掉程序进程时触发，对连接进行关闭
-		<-closeChan //没有收到数据就会一直阻塞
-		logger.Info("shutting down...")
-		_ = listener.Close()
-		_ = handler.Close()
-	}()
-
-	defer func() {
-		_ = listener.Close()
-		_ = handler.Close()
-	}()
-
-	ctx := context.Background()
-	var waitDone sync.WaitGroup //超时控制
-	for {
-		logger.Info("waiting link...")
-		conn, err := listener.Accept()
-		if err != nil {
-			break
-		}
-		logger.Info("accepted link: " + conn.RemoteAddr().String())
-		waitDone.Add(1)
-		go func() {
-			defer func() {
-				waitDone.Wait()
-			}()
-			handler.Handler(ctx, conn)
-		}()
-	}
-	waitDone.Wait()
 }

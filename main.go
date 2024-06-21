@@ -7,6 +7,8 @@ import (
 	"goRedis/lib/logger"
 	"goRedis/resp/handler"
 	"goRedis/tcp"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 )
 
@@ -24,6 +26,10 @@ func fileExists(path string) bool {
 }
 
 func main() {
+	go func() {
+		http.ListenAndServe(":6060", nil)
+	}()
+
 	logger.Setup(&logger.Settings{
 		Path:       "log",
 		Name:       "go_redis",
@@ -37,9 +43,10 @@ func main() {
 		config.Properties = defaultConfig
 	}
 
-	err := tcp.ListenAndServeWithSignal(
+	err := tcp.ListenAndServeWithGnet(
 		&tcp.Config{
-			Address: fmt.Sprintf("%s:%d", config.Properties.Bind, config.Properties.Port),
+			Address:   fmt.Sprintf("%s:%d", config.Properties.Bind, config.Properties.Port),
+			Multicore: true,
 		},
 		handler.NewRESPHandler())
 
