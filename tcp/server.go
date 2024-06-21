@@ -49,6 +49,7 @@ func ListenAndServe(listener net.Listener, handler tcp.Handler, closeChan <-chan
 		logger.Info("shutting down...")
 		_ = listener.Close()
 		_ = handler.Close()
+		syscall.Exit(0)
 	}()
 
 	defer func() {
