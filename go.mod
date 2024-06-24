@@ -13,6 +13,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/fortytw2/leaktest v1.3.0 // indirect
+	github.com/panjf2000/ants/v2 v2.9.0 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/zhangyunhao116/fastrand v0.3.0 // indirect

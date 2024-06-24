@@ -3,13 +3,14 @@ package parser
 
 import (
 	"bufio"
-	"bytes"
+	"context"
 	"errors"
 	"goRedis/interface/resp"
 	"goRedis/lib/logger"
 	"goRedis/resp/reply"
 	"io"
 	"runtime/debug"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 )
@@ -35,67 +36,100 @@ func (r *readState) finished() bool {
 	return r.expectedArgsCount > 0 && len(r.args) == r.expectedArgsCount
 }
 
-func ParseStream(data []byte, index int) (payload *Payload, ioerr bool, err error, last int) {
+// ParseStream 对上层暴露的解析器接口，异步并发地执行解析器，通过channel传递解析结果
+func ParseStream(data []byte) <-chan *Payload {
+	ch := make(chan *Payload)
+	go parse0(data, ch)
+	return ch
+}
+
+func parse0(data []byte, ch chan<- *Payload) {
 	defer func() {
-		if ok := recover(); ok != nil {
+		if err := recover(); err != nil {
 			logger.Error(string(debug.Stack()))
 		}
 	}()
-
-	bufReader := bufio.NewReader(bytes.NewReader(data))
+	bufReader := bufio.NewReader(io.NopCloser(strings.NewReader(string(data)))) //将data转为io.Reader
+	var err error
 	var state readState
 	var msg []byte
-	var length int
-	last = index
+
 	for {
-		msg, ioerr, err, length = readLine(bufReader, &state)
-		last += length
+		var ioErr bool
+		labels := pprof.Labels("msg", string(msg))
+		pprof.Do(context.Background(), labels, func(_ context.Context) {
+			msg, ioErr, err = readLine(bufReader, &state)
+		})
+		if len(msg) == 0 {
+			close(ch)
+			return
+		}
 		if err != nil {
-			return &Payload{
+			if ioErr { //io错误，该进程结束
+				ch <- &Payload{
+					Err: err,
+				}
+				close(ch) //关闭channel
+				return
+			}
+			//非io错误，继续读取
+			ch <- &Payload{
 				Err: err,
-			}, ioerr, err, last
+			}
+			state = readState{} //清空解析器状态
+			continue
 		}
 		//判断是否是多行解析模式
 		if !state.readingMultiLine {
 			if msg[0] == '*' { //数组
 				err = parseMultiBulkHeader(msg, &state)
 				if err != nil {
-					payload = &Payload{
+					ch <- &Payload{
 						Err: err,
 					}
-					return
+					state = readState{}
+					continue
 				}
 				if state.expectedArgsCount == 0 { //*0\r\n 返回空数组
-					payload = &Payload{
+					ch <- &Payload{
 						Data: reply.NewEmptyMultiBulkReply(),
 					}
-					return payload, false, nil, last
+					state = readState{}
+					continue
 				}
 			} else if msg[0] == '$' { //字符串
 				err = parseBulkHeader(msg, &state)
 				if err != nil {
-					return &Payload{
+					ch <- &Payload{
 						Err: err,
-					}, false, err, last
+					}
+					state = readState{}
+					continue
 				}
 				if state.bulkLen == -1 { //$-1\r\n返回null
-					return &Payload{
+					ch <- &Payload{
 						Data: reply.NewNullBulkReply(),
-					}, false, nil, last
+					}
+					state = readState{}
+					continue
 				}
 			} else { //非多行模式，msg的type也不是数组和字符串，即单行回复
 				result, err := parseSingleLineReply(msg)
-				return &Payload{
+				ch <- &Payload{
 					Data: result,
 					Err:  err,
-				}, false, nil, last
+				}
+				state = readState{}
+				continue
 			}
 		} else { //读取数组和字符串中的数据
 			err = readBody(msg, &state)
 			if err != nil {
-				return &Payload{
+				ch <- &Payload{
 					Err: errors.New("protocol error:" + string(msg)),
-				}, false, err, last
+				}
+				state = readState{}
+				continue
 			}
 			if state.finished() { //数据全部读取完毕
 				var result resp.Reply
@@ -104,10 +138,12 @@ func ParseStream(data []byte, index int) (payload *Payload, ioerr bool, err erro
 				} else if state.msgType == '$' { //字符串
 					result = reply.NewBulkReply(state.args[0])
 				}
-				return &Payload{
+				ch <- &Payload{
 					Data: result,
 					Err:  err,
-				}, false, nil, last
+				}
+				state = readState{}
+				continue
 			}
 
 		}
@@ -116,39 +152,37 @@ func ParseStream(data []byte, index int) (payload *Payload, ioerr bool, err erro
 }
 
 // readLine 读取一行，返回（解析出的数据，是否为io错误，错误信息）
-func readLine(bufReader *bufio.Reader, state *readState) ([]byte, bool, error, int) {
+func readLine(bufReader *bufio.Reader, state *readState) ([]byte, bool, error) {
 	var msg []byte
 	var err error
-	var length int
 
 	if state.bulkLen == 0 { //说明当前要读取的不是字符串，直接根据\r\n进行切分
 		msg, err = bufReader.ReadBytes('\n')
-		length = len(msg)
+
 		//logger.Info("msg:" + string(msg))
 		if err != nil { //io错误
 			logger.Error(err)
-			return nil, true, err, length
+			return nil, true, err
 		}
 		if len(msg) == 0 || msg[len(msg)-2] != '\r' { //非io错误，读取到的数据为空或结尾不以'\r\n'结尾，协议格式错误
 			logger.Warn("protocol error:" + string(msg))
-			return nil, false, errors.New("protocol error:" + string(msg)), length
+			return nil, false, errors.New("protocol error:" + string(msg))
 		}
 	} else { //当前要读取的是字符串，不能根据\r\n切分，严格按照bulkLen的大小进行读取
 		msg = make([]byte, state.bulkLen+2)  //+2是因为要读取\r\n
 		_, err = io.ReadFull(bufReader, msg) //将bufReader中的数据全部塞到msg中
-		length = len(msg)
 		//logger.Info("msg:" + string(msg))
 		if err != nil { //io错误
 			logger.Error(err)
-			return nil, true, err, length
+			return nil, true, err
 		}
 		if len(msg) == 0 || msg[len(msg)-2] != '\r' || msg[len(msg)-1] != '\n' { //非io错误，读取到的数据为空或结尾不以'\r\n'结尾，协议格式错误
 			logger.Warn("protocol error:" + string(msg))
-			return nil, false, errors.New("protocol error:" + string(msg)), length
+			return nil, false, errors.New("protocol error:" + string(msg))
 		}
 		state.bulkLen = 0 //清空需要读取的长度
 	}
-	return msg, false, nil, length
+	return msg, false, nil
 }
 
 // parseMultiBulkHeader 初始化数组解析器，示例：*3\r\n$3\r\nSET\r\n$3\r\nkey\r\n$5\r\nvalue\r\n，传入*3\r\n进行初始化

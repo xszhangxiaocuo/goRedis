@@ -2,13 +2,17 @@ package main
 
 import (
 	"fmt"
+	"github.com/panjf2000/gnet/v2"
+	"github.com/panjf2000/gnet/v2/pkg/logging"
 	"goRedis/config"
 	_ "goRedis/database/cmd"
 	"goRedis/lib/logger"
 	"goRedis/resp/handler"
 	"goRedis/tcp"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"time"
 )
 
 const configFile string = "redis.conf"
@@ -25,9 +29,9 @@ func fileExists(path string) bool {
 }
 
 func main() {
-	//go func() {
-	//	http.ListenAndServe(":6060", nil)
-	//}()
+	go func() {
+		http.ListenAndServe(":6060", nil)
+	}()
 
 	logger.Setup(&logger.Settings{
 		Path:       "log",
@@ -43,8 +47,24 @@ func main() {
 	}
 
 	err := tcp.ListenAndServeWithGnet(&tcp.Options{
-		Multicore: true,
-		ReusePort: true,
+		Multicore:               true,              // 启用多核
+		NumEventLoop:            4,                 // 设置事件循环数为 4，覆盖 Multicore 配置
+		LB:                      gnet.RoundRobin,   // 负载均衡策略为轮询
+		ReuseAddr:               true,              // 启用 SO_REUSEADDR
+		ReusePort:               true,              // 启用 SO_REUSEPORT
+		MulticastInterfaceIndex: 0,                 // 默认接口索引为 0
+		ReadBufferCap:           65536,             // 读缓冲区大小为 64KB
+		WriteBufferCap:          65536,             // 写缓冲区大小为 64KB
+		LockOSThread:            false,             // 不锁定 OS 线程
+		Ticker:                  false,             // 不启用 ticker
+		TCPKeepAlive:            30 * time.Second,  // TCP Keep-Alive 设置为 30 秒
+		TCPNoDelay:              gnet.TCPNoDelay,   // 禁用 Nagle 算法，即设置为 TCPNoDelay
+		SocketRecvBuffer:        0,                 // 不设置特定的接收缓冲区大小
+		SocketSendBuffer:        0,                 // 不设置特定的发送缓冲区大小
+		LogPath:                 "./gnet.log",      // 日志文件路径
+		LogLevel:                logging.InfoLevel, // 日志级别为 Info
+		Logger:                  nil,               // 使用默认 logger
+		EdgeTriggeredIO:         false,             // 不启用边缘触发 I/O
 	},
 		&tcp.Config{
 			Address:   fmt.Sprintf("%s:%d", config.Properties.Bind, config.Properties.Port),
