@@ -48,7 +48,6 @@ func main() {
 
 	err := tcp.ListenAndServeWithGnet(&tcp.Options{
 		Multicore:               true,              // 启用多核
-		NumEventLoop:            4,                 // 设置事件循环数为 4，覆盖 Multicore 配置
 		LB:                      gnet.RoundRobin,   // 负载均衡策略为轮询
 		ReuseAddr:               true,              // 启用 SO_REUSEADDR
 		ReusePort:               true,              // 启用 SO_REUSEPORT
@@ -56,11 +55,9 @@ func main() {
 		ReadBufferCap:           65536,             // 读缓冲区大小为 64KB
 		WriteBufferCap:          65536,             // 写缓冲区大小为 64KB
 		LockOSThread:            false,             // 不锁定 OS 线程
-		Ticker:                  false,             // 不启用 ticker
+		Ticker:                  true,              // 启用 ticker
 		TCPKeepAlive:            30 * time.Second,  // TCP Keep-Alive 设置为 30 秒
 		TCPNoDelay:              gnet.TCPNoDelay,   // 禁用 Nagle 算法，即设置为 TCPNoDelay
-		SocketRecvBuffer:        0,                 // 不设置特定的接收缓冲区大小
-		SocketSendBuffer:        0,                 // 不设置特定的发送缓冲区大小
 		LogPath:                 "./gnet.log",      // 日志文件路径
 		LogLevel:                logging.InfoLevel, // 日志级别为 Info
 		Logger:                  nil,               // 使用默认 logger

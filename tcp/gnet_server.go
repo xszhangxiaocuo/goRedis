@@ -10,7 +10,10 @@ import (
 	"goRedis/interface/tcp"
 	"goRedis/resp/connection"
 	"log"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -158,21 +161,21 @@ func (gs *GnetServer) OnTraffic(c gnet.Conn) (action gnet.Action) {
 }
 
 func ListenAndServeWithGnet(options *Options, cfg *Config, handler tcp.Handler) error {
-	//closeChan := make(chan struct{})
-	//sigChan := make(chan os.Signal)
-	////syscall.SIGHUP：通常表示终端断开或者控制进程结束，常用于通知守护进程重新读取配置文件。
-	////syscall.SIGQUIT：通常表示用户请求退出并生成核心转储（core dump），用于调试。
-	////syscall.SIGTERM：是一个终止信号，通常用于请求程序正常退出。
-	////syscall.SIGINT：通常由用户通过控制台（如按下 Ctrl+C）发送，请求中断程序。
-	//signal.Notify(sigChan, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
-	//go func() {
-	//	sig := <-sigChan
-	//	switch sig {
-	//	//判断接收的信号类型
-	//	case syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT:
-	//		closeChan <- struct{}{} //发送关闭信号
-	//	}
-	//}()
+	closeChan := make(chan struct{})
+	sigChan := make(chan os.Signal)
+	//syscall.SIGHUP：通常表示终端断开或者控制进程结束，常用于通知守护进程重新读取配置文件。
+	//syscall.SIGQUIT：通常表示用户请求退出并生成核心转储（core dump），用于调试。
+	//syscall.SIGTERM：是一个终止信号，通常用于请求程序正常退出。
+	//syscall.SIGINT：通常由用户通过控制台（如按下 Ctrl+C）发送，请求中断程序。
+	signal.Notify(sigChan, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		sig := <-sigChan
+		switch sig {
+		//判断接收的信号类型
+		case syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT:
+			closeChan <- struct{}{} //发送关闭信号
+		}
+	}()
 	p := goroutine.Default()
 	defer p.Release()
 	gs := &GnetServer{
@@ -180,27 +183,32 @@ func ListenAndServeWithGnet(options *Options, cfg *Config, handler tcp.Handler) 
 		multicore: cfg.Multicore,
 		pool:      p,
 		handler:   handler,
-		//closeChan: closeChan,
+		closeChan: closeChan,
 	}
-	//go func() {
-	//	<-gs.closeChan
-	//	gs.OnShutdown(gs.eng)
-	//	gs.handler.Close()
-	//}()
+	go func() {
+		<-gs.closeChan
+		gs.OnShutdown(gs.eng)
+		gs.handler.Close()
+		syscall.Exit(0)
+	}()
 	logging.Infof("gnet server is starting at %s", cfg.Address)
 
 	serveOptions := gnet.Options{
-		Multicore:        options.Multicore,
-		LockOSThread:     options.LockOSThread,
-		ReadBufferCap:    options.ReadBufferCap,
-		LB:               options.LB,
-		NumEventLoop:     options.NumEventLoop,
-		ReusePort:        options.ReusePort,
-		Ticker:           options.Ticker,
-		TCPKeepAlive:     options.TCPKeepAlive,
-		TCPNoDelay:       options.TCPNoDelay,
-		SocketRecvBuffer: options.SocketRecvBuffer,
-		SocketSendBuffer: options.SocketSendBuffer,
+		Multicore:               true,              // 启用多核
+		LB:                      gnet.RoundRobin,   // 负载均衡策略为轮询
+		ReuseAddr:               true,              // 启用 SO_REUSEADDR
+		ReusePort:               true,              // 启用 SO_REUSEPORT
+		MulticastInterfaceIndex: 0,                 // 默认接口索引为 0
+		ReadBufferCap:           65536,             // 读缓冲区大小为 64KB
+		WriteBufferCap:          65536,             // 写缓冲区大小为 64KB
+		LockOSThread:            false,             // 不锁定 OS 线程
+		Ticker:                  false,             // 启用 ticker
+		TCPKeepAlive:            30 * time.Second,  // TCP Keep-Alive 设置为 30 秒
+		TCPNoDelay:              gnet.TCPNoDelay,   // 禁用 Nagle 算法，即设置为 TCPNoDelay
+		LogPath:                 "./gnet.log",      // 日志文件路径
+		LogLevel:                logging.InfoLevel, // 日志级别为 Info
+		Logger:                  nil,               // 使用默认 logger
+		EdgeTriggeredIO:         false,             // 不启用边缘触发 I/O
 	}
 	return gnet.Run(gs, gs.addr, gnet.WithOptions(serveOptions))
 }
