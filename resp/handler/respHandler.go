@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"goRedis/database"
@@ -14,9 +15,14 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const ErrClosed = "use of closed network connection" // 使用了一个已经关闭的连接
+const (
+	batchThreshold = 4096                 // 批量处理的阈值
+	flushInterval  = 1 * time.Millisecond // 定时刷新间隔
+)
 
 type RESPHandler struct {
 	activeConn sync.Map             // 当前存活的连接
@@ -33,30 +39,44 @@ func NewRESPHandler() *RESPHandler {
 
 // Handler 处理客户端连接
 func (r *RESPHandler) Handler(ctx context.Context, conn net.Conn) {
+	var buffer bytes.Buffer
+	var mu sync.Mutex     // 用于保护buffer的读写
 	if r.closing.Load() { // 如果当前处于关闭状态，关闭连接
 		_ = conn.Close()
+		return
 	}
 	client := connection.NewRESPConn(conn) // 新建一个客户端连接
 	r.activeConn.Store(client, struct{}{})
 	ch := parser.ParseStream(conn) // 解析客户端请求
-	for payload := range ch {      // 不断读取管道中的数据，即客户端请求
+
+	ticker := time.NewTicker(flushInterval)
+	defer ticker.Stop()
+	go func() {
+		for range ticker.C {
+			mu.Lock()
+			if buffer.Len() > 0 {
+				_, _ = conn.Write(buffer.Bytes())
+				buffer.Reset()
+			}
+			mu.Unlock()
+		}
+	}()
+
+	for payload := range ch { // 不断读取管道中的数据，即客户端请求
 		if payload.Err != nil { // 解析出错
 			// 如果是EOF或者连接被关闭，关闭连接
 			if errors.Is(payload.Err, io.EOF) ||
 				errors.Is(payload.Err, io.ErrUnexpectedEOF) ||
 				strings.Contains(payload.Err.Error(), ErrClosed) {
 				r.closeClient(client) // 关闭客户端连接
-				logger.Info("Connection closed: " + client.RemoteAddr().String())
+				//logger.Info("Connection closed: " + client.RemoteAddr().String())
 				return
 			}
 			// 协议错误
 			errReply := reply.NewProtocolErrReply(payload.Err.Error())
-			err := client.Write(errReply.ToBytes())
-			if err != nil {
-				r.closeClient(client)
-				logger.Info("Connection closed: " + client.RemoteAddr().String())
-				return
-			}
+			mu.Lock()
+			buffer.Write(errReply.ToBytes())
+			mu.Unlock()
 			// 只是协议格式造成的解析错误，继续处理下一个请求
 			continue
 		}
@@ -71,13 +91,28 @@ func (r *RESPHandler) Handler(ctx context.Context, conn net.Conn) {
 			logger.Error("need multi bulk reply")
 			continue
 		}
-		result := r.db.Exec(client, mbreply.Args) // 执行指令
-		if result != nil {
-			_ = client.Write(result.ToBytes())
+		results := r.db.Exec(client, mbreply.Args) // 执行指令
+		if results != nil {
+			mu.Lock()
+			buffer.Write(results.ToBytes())
+			mu.Unlock()
 		} else {
-			_ = client.Write(reply.NewUnknownErrReply().ToBytes())
+			mu.Lock()
+			buffer.Write(reply.NewUnknownErrReply().ToBytes())
+			mu.Unlock()
 		}
+		mu.Lock()
+		if buffer.Len() > batchThreshold {
+			_, _ = conn.Write(buffer.Bytes())
+			buffer.Reset()
+		}
+		mu.Unlock()
 	}
+	mu.Lock()
+	if buffer.Len() > 0 {
+		_, _ = conn.Write(buffer.Bytes())
+	}
+	mu.Unlock()
 }
 
 // Close 关闭协议层

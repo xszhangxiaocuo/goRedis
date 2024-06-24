@@ -7,6 +7,7 @@ import (
 	"goRedis/lib/logger"
 	"goRedis/resp/handler"
 	"goRedis/tcp"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
 )
@@ -25,9 +26,10 @@ func fileExists(path string) bool {
 }
 
 func main() {
-	//go func() {
-	//	http.ListenAndServe(":6060", nil)
-	//}()
+
+	go func() {
+		http.ListenAndServe(":6060", nil)
+	}()
 
 	logger.Setup(&logger.Settings{
 		Path:       "log",

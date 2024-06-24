@@ -60,12 +60,12 @@ func ListenAndServe(listener net.Listener, handler tcp.Handler, closeChan <-chan
 	ctx := context.Background()
 	var waitDone sync.WaitGroup //超时控制
 	for {
-		logger.Info("waiting link...")
+		//logger.Info("waiting link...")
 		conn, err := listener.Accept()
 		if err != nil {
 			break
 		}
-		logger.Info("accepted link: " + conn.RemoteAddr().String())
+		//logger.Info("accepted link: " + conn.RemoteAddr().String())
 		waitDone.Add(1)
 		go func() {
 			defer func() {
