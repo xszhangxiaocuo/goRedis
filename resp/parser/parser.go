@@ -152,7 +152,9 @@ func readLine(bufReader *bufio.Reader, state *readState) ([]byte, bool, error) {
 		msg, err = bufReader.ReadBytes('\n')
 		//logger.Info("msg:" + string(msg))
 		if err != nil { //io错误
-			logger.Error(err)
+			if !errors.Is(err, io.EOF) {
+				logger.Error(err)
+			}
 			return nil, true, err
 		}
 		if len(msg) == 0 || msg[len(msg)-2] != '\r' { //非io错误，读取到的数据为空或结尾不以'\r\n'结尾，协议格式错误
