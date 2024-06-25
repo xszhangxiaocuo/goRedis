@@ -103,7 +103,7 @@ func (r *RESPHandler) Handler(ctx context.Context, conn net.Conn) {
 		}
 		mu.Lock()
 		if buffer.Len() > batchThreshold {
-			_, _ = conn.Write(buffer.Bytes())
+			_ = client.Write(buffer.Bytes())
 			buffer.Reset()
 		}
 		mu.Unlock()
