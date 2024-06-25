@@ -10,7 +10,7 @@ import (
 func init() {
 	database.RegisterCommand("del", Del, -2)
 	database.RegisterCommand("exists", Exists, -2)
-	database.RegisterCommand("flushdb", FlushDb, -2)
+	database.RegisterCommand("flushdb", FlushDb, -1)
 	database.RegisterCommand("type", Type, 2)
 	database.RegisterCommand("rename", Rename, 3)
 	database.RegisterCommand("renamenx", RenameNX, 3)
