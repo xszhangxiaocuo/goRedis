@@ -4,6 +4,7 @@ import (
 	"container/list"
 	list2 "goRedis/interface/meta/list"
 	"goRedis/lib/logger"
+	"sync"
 )
 
 // pageSize 每页大小必须是偶数，因为在插入满页时会将页分为两半
@@ -13,6 +14,7 @@ const pageSize = 1024
 type QuickList struct {
 	data *list.List
 	size int
+	mu   sync.Mutex
 }
 
 // iterator 迭代器，用于在 [-1, ql.Len()] 之间移动
@@ -144,6 +146,9 @@ func (iter *iterator) atBegin() bool {
 }
 
 func (ql *QuickList) Add(val any) {
+	ql.mu.Lock()
+	defer ql.mu.Unlock()
+
 	ql.size++
 	if ql.data.Len() == 0 {
 		page := make([]any, 0, pageSize)
@@ -206,18 +211,29 @@ func (ql *QuickList) find(index int) *iterator {
 }
 
 func (ql *QuickList) Get(index int) (val any) {
+	ql.mu.Lock()
+	defer ql.mu.Unlock()
+
 	iter := ql.find(index)
 	return iter.get()
 }
 
 func (ql *QuickList) Set(index int, val any) {
+	ql.mu.Lock()
+	defer ql.mu.Unlock()
+
 	iter := ql.find(index)
 	iter.set(val)
 }
 
 func (ql *QuickList) Insert(index int, val any) {
+	ql.mu.Lock()
+	defer ql.mu.Unlock()
+
 	if index == ql.size {
+		ql.mu.Unlock() // 避免死锁
 		ql.Add(val)
+		ql.mu.Lock()
 		return
 	}
 	iter := ql.find(index)
@@ -248,6 +264,9 @@ func (ql *QuickList) Insert(index int, val any) {
 }
 
 func (ql *QuickList) Remove(index int) any {
+	ql.mu.Lock()
+	defer ql.mu.Unlock()
+
 	iter := ql.find(index)
 	return iter.remove()
 }
@@ -258,6 +277,9 @@ func (ql *QuickList) Len() int {
 
 // RemoveLast 移除最后一个元素
 func (ql *QuickList) RemoveLast() any {
+	ql.mu.Lock()
+	defer ql.mu.Unlock()
+
 	if ql.Len() == 0 {
 		return nil
 	}
@@ -276,6 +298,9 @@ func (ql *QuickList) RemoveLast() any {
 
 // RemoveAllByVal 移除所有符合预期的元素
 func (ql *QuickList) RemoveAllByVal(expected list2.Expected) int {
+	ql.mu.Lock()
+	defer ql.mu.Unlock()
+
 	iter := ql.find(0)
 	removed := 0
 	for !iter.atEnd() {
@@ -290,6 +315,9 @@ func (ql *QuickList) RemoveAllByVal(expected list2.Expected) int {
 }
 
 func (ql *QuickList) RemoveByVal(expected list2.Expected, count int) int {
+	ql.mu.Lock()
+	defer ql.mu.Unlock()
+
 	if ql.size == 0 {
 		return 0
 	}
@@ -310,6 +338,9 @@ func (ql *QuickList) RemoveByVal(expected list2.Expected, count int) int {
 }
 
 func (ql *QuickList) ReverseRemoveByVal(expected list2.Expected, count int) int {
+	ql.mu.Lock()
+	defer ql.mu.Unlock()
+
 	if ql.size == 0 {
 		return 0
 	}
@@ -329,6 +360,9 @@ func (ql *QuickList) ReverseRemoveByVal(expected list2.Expected, count int) int 
 }
 
 func (ql *QuickList) ForEach(consumer list2.Consumer) {
+	ql.mu.Lock()
+	defer ql.mu.Unlock()
+
 	if ql == nil {
 		logger.Error("list is nil")
 	}
@@ -350,6 +384,9 @@ func (ql *QuickList) ForEach(consumer list2.Consumer) {
 }
 
 func (ql *QuickList) Contains(expected list2.Expected) bool {
+	ql.mu.Lock()
+	defer ql.mu.Unlock()
+
 	contains := false
 	ql.ForEach(func(i int, actual any) bool {
 		if expected(actual) {
@@ -363,11 +400,16 @@ func (ql *QuickList) Contains(expected list2.Expected) bool {
 
 // Range 遍历范围 [start, stop)，使用迭代器实现
 func (ql *QuickList) Range(start int, stop int) []any {
+	ql.mu.Lock()
+	defer ql.mu.Unlock()
+
 	if start < 0 || start >= ql.Len() {
 		logger.Error("`start` out of range")
+		return nil
 	}
 	if stop < start || stop > ql.Len() {
 		logger.Error("`stop` out of range")
+		return nil
 	}
 	sliceSize := stop - start
 	slice := make([]any, 0, sliceSize)
