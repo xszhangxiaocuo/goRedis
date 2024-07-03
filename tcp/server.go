@@ -69,7 +69,7 @@ func ListenAndServe(listener net.Listener, handler tcp.Handler, closeChan <-chan
 		waitDone.Add(1)
 		go func() {
 			defer func() {
-				waitDone.Wait()
+				waitDone.Done()
 			}()
 			handler.Handler(ctx, conn)
 		}()

@@ -55,7 +55,7 @@ func (r *RESPHandler) Handler(ctx context.Context, conn net.Conn) {
 		for range ticker.C {
 			mu.Lock()
 			if buffer.Len() > 0 {
-				_, _ = conn.Write(buffer.Bytes())
+				_ = client.Write(buffer.Bytes())
 				buffer.Reset()
 			}
 			mu.Unlock()
@@ -110,7 +110,7 @@ func (r *RESPHandler) Handler(ctx context.Context, conn net.Conn) {
 	}
 	mu.Lock()
 	if buffer.Len() > 0 {
-		_, _ = conn.Write(buffer.Bytes())
+		_ = client.Write(buffer.Bytes())
 	}
 	mu.Unlock()
 }
