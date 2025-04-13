@@ -4,20 +4,23 @@ import (
 	"context"
 	"errors"
 	"goRedis/interface/resp"
+	"goRedis/lib/utils"
+	"goRedis/resp/client"
 	"goRedis/resp/reply"
-	"log"
+	"strconv"
 )
 
-func (cluster *ClusterDatabase) getPeerClient(peer string) (any, error) { //todo 返回redis服务器连接
-
+func (cluster *ClusterDatabase) getPeerClient(peer string) (*client.Client, error) {
+	pool, ok := cluster.peerConnection[peer]
+	if !ok {
+		return nil, errors.New("未找到连接")
+	}
 	ctx := context.Background()
-	pool := cluster.peerConnection[peer]
 	object, err := pool.BorrowObject(ctx)
 	if err != nil {
-		log.Println(err)
 		return nil, err
 	}
-	c, ok := object.(*string) //todo：把它转换为redis服务器连接
+	c, ok := object.(*client.Client)
 	if !ok {
 		return nil, errors.New("类型转换错误")
 	}
@@ -25,31 +28,34 @@ func (cluster *ClusterDatabase) getPeerClient(peer string) (any, error) { //todo
 	return c, err
 }
 
-func (cluster *ClusterDatabase) returnPeerClient(peer string, peerClient string) error { //todo 传入redis连接
+func (cluster *ClusterDatabase) returnPeerClient(peer string, peerClient *client.Client) error {
 	pool, ok := cluster.peerConnection[peer]
 	if !ok {
 		return errors.New("未找到连接")
 	}
-	return pool.ReturnObject(context.Background(), peerClient)
+	return pool.ReturnObject(context.Background(), peerClient) // 将连接放回连接池
 
 }
 
-func (cluster *ClusterDatabase) relay(peerIp string, c resp.Connection, args [][]byte) resp.Reply { //转发。connection是resp里面记录用户信息的conn
-	if peerIp == cluster.self {
+// 转发，connection是resp里面记录用户信息的conn
+func (cluster *ClusterDatabase) relay(peer string, c resp.Connection, args [][]byte) resp.Reply {
+	// 本地执行
+	if peer == cluster.self {
 		return cluster.db.Exec(c, args)
 	}
-	client, err := cluster.getPeerClient(peerIp)
+	peerClient, err := cluster.getPeerClient(peer)
 	if err != nil {
 		return reply.NewStandardErrReply(err.Error())
 	}
 	defer func() {
-		_ = cluster.returnPeerClient(peerIp, client.(string))
+		_ = cluster.returnPeerClient(peer, peerClient)
 	}()
-	//todo peerClient.Send(utils.ToCmdLine("select",strconv.Itoa(c.getDBIndex())))
-	return nil //todo 返回转发的响应return client.Send(args)
+	peerClient.Send(utils.ToCmdLine("SELECT", strconv.Itoa(c.GetDBIndex()))) // 先选择DB
+	return peerClient.Send(args)
 }
 
-func (cluster *ClusterDatabase) broadcast(c resp.Connection, args [][]byte) map[string]resp.Reply { //[][]byte是指令
+// 群发广播
+func (cluster *ClusterDatabase) broadcast(c resp.Connection, args [][]byte) map[string]resp.Reply {
 	results := make(map[string]resp.Reply)
 	for _, node := range cluster.nodes {
 		result := cluster.relay(node, c, args) //调用转发函数

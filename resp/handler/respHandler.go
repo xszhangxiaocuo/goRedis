@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"goRedis/cluster"
+	"goRedis/config"
 	"goRedis/database"
 	dbinterface "goRedis/interface/database"
 	"goRedis/lib/logger"
@@ -31,7 +33,12 @@ type RESPHandler struct {
 }
 
 func NewRESPHandler() *RESPHandler {
-	db := database.NewDataBase()
+	var db dbinterface.Database
+	if config.Properties.Self != "" && len(config.Properties.Peers) > 0 { // 集群模式
+		db = cluster.NewClusterDatabase()
+	} else { // 单机模式
+		db = database.NewStandaloneDataBase()
+	}
 	return &RESPHandler{
 		db: db,
 	}
