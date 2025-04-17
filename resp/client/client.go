@@ -31,6 +31,8 @@ type Client struct {
 
 	status  int32           // 客户端状态
 	working *sync.WaitGroup // 用于统计未完成的请求（包含待发送和等待响应的）
+
+	tickerHook func() // 心跳钩子函数
 }
 
 // request 表示发送给 redis 服务端的一条消息
@@ -49,7 +51,7 @@ const (
 )
 
 // MakeClient 创建一个新的客户端实例
-func MakeClient(addr string) (*Client, error) {
+func MakeClient(addr string, tickerHook func()) (*Client, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
@@ -60,6 +62,7 @@ func MakeClient(addr string) (*Client, error) {
 		pendingReqs: make(chan *request, chanSize),
 		waitingReqs: make(chan *request, chanSize),
 		working:     &sync.WaitGroup{},
+		tickerHook:  tickerHook,
 	}, nil
 }
 
@@ -107,6 +110,9 @@ func (client *Client) reconnect() {
 		}
 	}
 	if conn == nil { // 达到最大重试次数，关闭客户端
+		if client.tickerHook != nil {
+			client.tickerHook()
+		}
 		client.Close()
 		return
 	}

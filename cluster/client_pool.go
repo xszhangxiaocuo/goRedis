@@ -8,12 +8,13 @@ import (
 )
 
 type connectionFactory struct {
-	Peer string
+	Peer       string
+	TickerHook func()
 }
 
 func (f connectionFactory) MakeObject(ctx context.Context) (*pool.PooledObject, error) {
 	var err error
-	c, err := client.MakeClient(f.Peer)
+	c, err := client.MakeClient(f.Peer, f.TickerHook)
 	if err != nil {
 		return nil, err
 	}

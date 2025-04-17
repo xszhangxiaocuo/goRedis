@@ -3,6 +3,7 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	pool "github.com/jolestar/go-commons-pool"
 	"goRedis/config"
 	database2 "goRedis/database"
@@ -41,9 +42,14 @@ func NewClusterDatabase() *ClusterDatabase {
 	for _, peer := range config.Properties.Peers {
 		cluster.peerConnection[peer] = pool.NewObjectPoolWithDefaultConfig(ctx, &connectionFactory{
 			Peer: peer,
+			TickerHook: func() {
+				// 连接超时触发，移除连接
+				delete(cluster.peerConnection, peer)
+				cluster.peerPicker.RemoveNode(peer)
+				logger.Warn(fmt.Sprintf("peer %s connection timeout, already removed", peer))
+			},
 		})
 	}
-
 	return cluster
 }
 

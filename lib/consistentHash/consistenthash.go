@@ -47,6 +47,24 @@ func (m *NodeMap) AddNode(keys ...string) { // 传入名称或地址。将节点
 	sort.Ints(m.nodeHashs) //将节点的哈希值进行排序
 }
 
+// RemoveNode 删除节点
+func (m *NodeMap) RemoveNode(keys ...string) {
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		for i := 0; i < m.replicas; i++ { //删除虚拟节点
+			hash := int(m.hashFunc([]byte(key + strconv.Itoa(i))))
+			// 二分查找删除key在hash环中的下标
+			idx := sort.SearchInts(m.nodeHashs, hash)
+			if idx < len(m.nodeHashs) && m.nodeHashs[idx] == hash {
+				m.nodeHashs = append(m.nodeHashs[:idx], m.nodeHashs[idx+1:]...) //删除hash环中的节点
+			}
+			delete(m.nodeHashMap, hash) //删除虚拟节点与真实节点的映射
+		}
+	}
+}
+
 func (m *NodeMap) PickNode(key string) string { //返回string是目标节点的地址或名称
 	if m.IsEmpty() {
 		return ""
