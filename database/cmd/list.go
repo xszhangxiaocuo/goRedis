@@ -4,6 +4,7 @@ import (
 	"goRedis/database"
 	interdb "goRedis/interface/database"
 	"goRedis/interface/resp"
+	"goRedis/lib/utils"
 	"goRedis/meta/list"
 	"goRedis/resp/reply"
 	"strconv"
@@ -39,6 +40,7 @@ func LPush(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Rep
 	for i := 1; i < len(args); i++ {
 		data.Insert(0, args[i])
 	}
+	db.AddAof(utils.ToCmdLine3("lpush", args...))
 	return reply.NewIntReply(int64(data.Len()))
 }
 
@@ -63,6 +65,7 @@ func RPush(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Rep
 	for i := 1; i < len(args); i++ {
 		data.Add(args[i])
 	}
+	db.AddAof(utils.ToCmdLine3("rpush", args...))
 	return reply.NewIntReply(int64(data.Len()))
 }
 
@@ -99,6 +102,7 @@ func LPop(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Repl
 	if len(result) == 0 {
 		return reply.NewEmptyMultiBulkReply()
 	}
+	db.AddAof(utils.ToCmdLine3("lpop", args...))
 	return reply.NewMultiBulkReply(result)
 }
 
@@ -135,6 +139,7 @@ func RPop(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Repl
 	if len(result) == 0 {
 		return reply.NewNullBulkReply()
 	}
+	db.AddAof(utils.ToCmdLine3("rpop", args...))
 	return reply.NewMultiBulkReply(result)
 }
 

@@ -100,6 +100,9 @@ func NewFileLogger(settings *Settings) (*Logger, error) {
 	}
 	go func() {
 		for e := range logger.entryChan {
+			if e.msg == "" {
+				continue
+			}
 			logFilename := fmt.Sprintf("%s-%s.%s",
 				settings.Name,
 				time.Now().Format(settings.TimeFormat),

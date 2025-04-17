@@ -4,6 +4,7 @@ import (
 	"goRedis/database"
 	database2 "goRedis/interface/database"
 	"goRedis/interface/resp"
+	"goRedis/lib/utils"
 	"goRedis/meta/set"
 	"goRedis/resp/reply"
 )
@@ -33,6 +34,7 @@ func SAdd(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Repl
 		}
 		result += data.Add(string(arg))
 	}
+	db.AddAof(utils.ToCmdLine3("sadd", args...))
 	return reply.NewIntReply(int64(result))
 }
 
@@ -54,6 +56,7 @@ func SRem(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Repl
 		}
 		result += data.Remove(string(arg))
 	}
+	db.AddAof(utils.ToCmdLine3("srem", args...))
 	return reply.NewIntReply(int64(result))
 }
 

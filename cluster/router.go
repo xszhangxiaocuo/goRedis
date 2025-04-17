@@ -7,18 +7,19 @@ import (
 
 func makeRouter() map[string]CmdFunc {
 	return map[string]CmdFunc{
-		"EXISTS":   defaultFunc,
-		"TYPE":     defaultFunc,
-		"SELECT":   selectDB,
-		"SET":      defaultFunc,
-		"SETNX":    defaultFunc,
-		"GET":      defaultFunc,
-		"GETSET":   defaultFunc,
-		"DEL":      del,
-		"PING":     ping,
-		"RENAME":   rename,
-		"RENAMENX": rename,
-		"FLUSHDB":  flushdb,
+		"hello":   defaultFunc,
+		"exists":  defaultFunc,
+		"type":    defaultFunc,
+		"set":     defaultFunc,
+		"setnx":   defaultFunc,
+		"get":     defaultFunc,
+		"getset":  defaultFunc,
+		"select":  selectDB,
+		"del":     del,
+		"ping":    ping,
+		"rename":  rename,
+		"renamnx": rename,
+		"flushdb": flushdb,
 	}
 }
 
@@ -29,6 +30,7 @@ func defaultFunc(cluster *ClusterDatabase, c resp.Connection, args [][]byte) res
 	return cluster.relay(peer, c, args)
 }
 
+// PING，直接本地执行
 func ping(cluster *ClusterDatabase, c resp.Connection, args [][]byte) resp.Reply {
 	return cluster.db.Exec(c, args)
 }

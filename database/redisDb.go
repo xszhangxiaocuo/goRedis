@@ -13,13 +13,15 @@ import (
 
 // RedisDb Redis内核
 type RedisDb struct {
-	id   int            // 数据库编号
-	data interDict.Dict // 数据库存储的键值对
+	id     int                    // 数据库编号
+	data   interDict.Dict         // 数据库存储的键值对
+	addAof func(database.CmdLine) // 用于添加AOF命令行的函数
 }
 
 func NewRedisDb() *RedisDb {
 	return &RedisDb{
-		data: dict.NewSyncDict(),
+		data:   dict.NewSyncDict(),
+		addAof: func(line database.CmdLine) {},
 	}
 }
 
@@ -90,4 +92,12 @@ func (db *RedisDb) AfterClientClose(client resp.Connection) error {
 
 func (db *RedisDb) SetId(id int) {
 	db.id = id
+}
+
+func (db *RedisDb) AddAof(line database.CmdLine) {
+	db.addAof(line)
+}
+
+func (db *RedisDb) SetAddAof(fn func(database.CmdLine)) {
+	db.addAof = fn
 }

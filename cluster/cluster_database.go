@@ -26,7 +26,7 @@ func NewClusterDatabase() *ClusterDatabase {
 	cluster := &ClusterDatabase{
 		self:           config.Properties.Self,
 		db:             database2.NewStandaloneDataBase(),
-		peerPicker:     consistentHash.NewNodeMap(nil),
+		peerPicker:     consistentHash.NewNodeMap(config.Properties.ClusterReplicas, nil),
 		peerConnection: make(map[string]*pool.ObjectPool),
 	}
 	nodes := make([]string, 0, len(config.Properties.Peers)+1)
@@ -59,7 +59,7 @@ func (c *ClusterDatabase) Exec(client resp.Connection, args [][]byte) (result re
 		}
 	}()
 	cmd := strings.ToLower(string(args[0]))
-	if cmdFunc, ok := router[cmd]; ok {
+	if cmdFunc, ok := router[cmd]; !ok {
 		result = reply.NewStandardErrReply("ERR not supported command")
 	} else {
 		result = cmdFunc(c, client, args)

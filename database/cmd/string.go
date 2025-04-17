@@ -4,6 +4,7 @@ import (
 	"goRedis/database"
 	interdb "goRedis/interface/database"
 	"goRedis/interface/resp"
+	"goRedis/lib/utils"
 	"goRedis/resp/reply"
 )
 
@@ -34,6 +35,7 @@ func Set(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply
 	key := string(args[0])
 	value := args[1]
 	db.PutEntity(key, interdb.NewDataEntity(value))
+	db.AddAof(utils.ToCmdLine3("set", args...))
 	return reply.NewOkReply()
 }
 
@@ -42,6 +44,7 @@ func SetNX(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Rep
 	key := string(args[0])
 	value := args[1]
 	result := db.PutIfAbsent(key, interdb.NewDataEntity(value))
+	db.AddAof(utils.ToCmdLine3("setnx", args...))
 	return reply.NewIntReply(int64(result))
 }
 
@@ -58,6 +61,7 @@ func GetSet(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Re
 	if !ok { // 类型错误
 		return reply.NewStandardErrReply("type error")
 	}
+	db.AddAof(utils.ToCmdLine3("getset", args...))
 	return reply.NewBulkReply(v)
 }
 

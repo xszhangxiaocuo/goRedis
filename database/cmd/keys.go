@@ -3,6 +3,7 @@ package cmd
 import (
 	"goRedis/database"
 	"goRedis/interface/resp"
+	"goRedis/lib/utils"
 	"goRedis/lib/wildcard"
 	"goRedis/resp/reply"
 )
@@ -24,6 +25,9 @@ func Del(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply
 		keys[i] = string(arg)
 	}
 	count := db.RemoveAll(keys...)
+	if count > 0 {
+		db.AddAof(utils.ToCmdLine3("del", args...))
+	}
 	return reply.NewIntReply(int64(count))
 }
 
@@ -41,6 +45,7 @@ func Exists(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Re
 // FlushDb 清空数据库 TODO: 参数：SYNC同步刷新数据库，ASYNC异步刷新数据库
 func FlushDb(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Reply {
 	db.Close()
+	db.AddAof(utils.ToCmdLine3("flushdb", args...))
 	return reply.NewOkReply()
 }
 
@@ -69,6 +74,7 @@ func Rename(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Re
 	}
 	db.PutEntity(dest, entity)
 	db.Remove(src)
+	db.AddAof(utils.ToCmdLine3("rename", args...))
 	return reply.NewOkReply()
 }
 
@@ -87,6 +93,7 @@ func RenameNX(client resp.Connection, db *database.RedisDb, args [][]byte) resp.
 	}
 	db.PutEntity(dest, entity)
 	db.Remove(src)
+	db.AddAof(utils.ToCmdLine3("renamenx", args...))
 	return reply.NewIntReply(1)
 }
 

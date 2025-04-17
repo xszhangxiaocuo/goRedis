@@ -44,6 +44,7 @@ type ServerProperties struct {
 	ClusterAsSeed     bool   `cfg:"cluster-as-seed"`      // 是否作为种子节点。
 	ClusterSeed       string `cfg:"cluster-seed"`         // 集群种子节点。
 	ClusterConfigFile string `cfg:"cluster-config-file"`  // 集群配置文件。
+	ClusterReplicas   int    `cfg:"cluster-replicas"`     // 每个节点虚拟节点的数量。
 
 	// 集群模式配置
 	ClusterEnabled string   `cfg:"cluster-enabled"` // 目前未使用。
@@ -88,10 +89,11 @@ func init() {
 
 	// 默认配置
 	Properties = &ServerProperties{
-		Bind:       "127.0.0.1",
-		Port:       6379,
-		AppendOnly: false,
-		RunID:      utils.RandString(40),
+		Bind:            "127.0.0.1",
+		Port:            9736,
+		AppendOnly:      false,
+		RunID:           utils.RandString(40),
+		ClusterReplicas: 1,
 	}
 }
 

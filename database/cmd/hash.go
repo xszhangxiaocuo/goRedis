@@ -5,6 +5,7 @@ import (
 	idatabase "goRedis/interface/database"
 	idict "goRedis/interface/meta/dict"
 	"goRedis/interface/resp"
+	"goRedis/lib/utils"
 	"goRedis/meta/dict"
 	"goRedis/resp/reply"
 )
@@ -28,6 +29,7 @@ func HSet(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Repl
 		return reply.NewStandardErrReply("ERR type error")
 	}
 	field := string(args[1])
+	db.AddAof(utils.ToCmdLine3("hset", args...))
 	return reply.NewIntReply(int64(data.Put(field, args[2])))
 }
 
@@ -67,6 +69,9 @@ func HDel(client resp.Connection, db *database.RedisDb, args [][]byte) resp.Repl
 			continue
 		}
 		result += data.Remove(string(arg))
+	}
+	if result > 0 {
+		db.AddAof(utils.ToCmdLine3("hdel", args...))
 	}
 	return reply.NewIntReply(int64(result))
 }

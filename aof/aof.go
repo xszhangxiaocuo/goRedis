@@ -5,17 +5,18 @@ import (
 	"goRedis/interface/database"
 	"goRedis/lib/logger"
 	"goRedis/lib/utils"
+	"goRedis/resp/connection"
+	"goRedis/resp/parser"
 	"goRedis/resp/reply"
+	"io"
 	"os"
 	"strconv"
 )
 
-type CmdLine = [][]byte
-
 const aofBufferSize = 1 << 16
 
 type payload struct {
-	cmdLine CmdLine
+	cmdLine database.CmdLine
 	dbIndex int
 }
 
@@ -46,7 +47,7 @@ func NewAofHandler(database database.Database) (*AofHandler, error) {
 }
 
 // ↓异步落盘\持久化
-func (handler *AofHandler) AddAof(dbIndex int, cmd CmdLine) { //传入：几号DB数据库
+func (handler *AofHandler) AddAof(dbIndex int, cmd database.CmdLine) { //传入：几号DB数据库
 	if config.Properties.AppendOnly && handler.aofChan != nil {
 		//新建pyload
 		handler.aofChan <- &payload{ //将传入参数组装为payload并传到channel
@@ -81,5 +82,35 @@ func (handler *AofHandler) handleAof() {
 
 // loadAof
 func (handler *AofHandler) LoadAof() {
-
+	file, err := os.Open(handler.aofFileName)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	defer file.Close()
+	ch := parser.ParseStream(file)
+	tempConnection := &connection.RESPConn{}
+	for p := range ch { // 接收解析器的返回值
+		if p.Err != nil {
+			if p.Err == io.EOF {
+				logger.Info("AOF: load aof file finished")
+				break
+			}
+			logger.Error(p.Err)
+			continue
+		}
+		if p.Data == nil {
+			logger.Error("AOF: empty payload")
+		}
+		multiBulkReply, ok := p.Data.(*reply.MultiBulkReply)
+		if !ok {
+			logger.Error("AOF: exec error: ", p.Data)
+			continue
+		}
+		r := handler.database.Exec(tempConnection, multiBulkReply.Args) //执行命令
+		if reply.IsErrReply(r) {
+			logger.Error("AOF: exec error: ", r.ToBytes())
+			continue
+		}
+	}
 }

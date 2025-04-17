@@ -34,7 +34,6 @@ func (cluster *ClusterDatabase) returnPeerClient(peer string, peerClient *client
 		return errors.New("未找到连接")
 	}
 	return pool.ReturnObject(context.Background(), peerClient) // 将连接放回连接池
-
 }
 
 // 转发，connection是resp里面记录用户信息的conn
