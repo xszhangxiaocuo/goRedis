@@ -40,6 +40,9 @@ func (cluster *ClusterDatabase) returnPeerClient(peer string, peerClient *client
 func (cluster *ClusterDatabase) relay(peer string, c resp.Connection, args [][]byte) resp.Reply {
 	// 本地执行
 	if peer == cluster.self {
+		if string(args[0]) == "addnode" {
+			return reply.NewOkReply()
+		}
 		return cluster.db.Exec(c, args)
 	}
 	peerClient, err := cluster.getPeerClient(peer)
@@ -56,7 +59,17 @@ func (cluster *ClusterDatabase) relay(peer string, c resp.Connection, args [][]b
 // 群发广播
 func (cluster *ClusterDatabase) broadcast(c resp.Connection, args [][]byte) map[string]resp.Reply {
 	results := make(map[string]resp.Reply)
-	for _, node := range cluster.nodes {
+	for node, _ := range cluster.nodes {
+		result := cluster.relay(node, c, args) //调用转发函数
+		results[node] = result
+	}
+	return results
+}
+
+// 群发广播，指定节点
+func (cluster *ClusterDatabase) broadcast0(c resp.Connection, args [][]byte, nodes map[string]any) map[string]resp.Reply {
+	results := make(map[string]resp.Reply)
+	for node, _ := range nodes {
 		result := cluster.relay(node, c, args) //调用转发函数
 		results[node] = result
 	}

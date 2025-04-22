@@ -17,7 +17,7 @@ import (
 
 type ClusterDatabase struct { //Cluster节点:A要维护一组对B、一组对C节点的客户端。并发获取多个连接而不是一个连接。
 	self           string
-	nodes          []string                    //记录集群中所有的节点
+	nodes          map[string]any              //记录集群中所有的节点
 	peerPicker     *consistentHash.NodeMap     //一致性哈希管理器，可以判空、添加节点、选择节点
 	peerConnection map[string]*pool.ObjectPool //连接池,每个cluster节点都需要多个链接，用连接池维护
 	db             database.Database           //底层的单机数据库
@@ -30,23 +30,21 @@ func NewClusterDatabase() *ClusterDatabase {
 		peerPicker:     consistentHash.NewNodeMap(config.Properties.ClusterReplicas, nil),
 		peerConnection: make(map[string]*pool.ObjectPool),
 	}
-	nodes := make([]string, 0, len(config.Properties.Peers)+1)
+	nodes := make(map[string]any)
 	for _, peer := range config.Properties.Peers {
-		nodes = append(nodes, peer)
+		nodes[peer] = nil
+		cluster.peerPicker.AddNode(peer)
 	}
-	nodes = append(nodes, config.Properties.Self)
+	nodes[config.Properties.Self] = nil
+	cluster.peerPicker.AddNode(config.Properties.Self)
 	cluster.nodes = nodes
-	cluster.peerPicker.AddNode(nodes...)
 	ctx := context.Background()
 	// 为每个节点创建连接池
 	for _, peer := range config.Properties.Peers {
 		cluster.peerConnection[peer] = pool.NewObjectPoolWithDefaultConfig(ctx, &connectionFactory{
 			Peer: peer,
 			TickerHook: func() {
-				// 连接超时触发，移除连接
-				delete(cluster.peerConnection, peer)
-				cluster.peerPicker.RemoveNode(peer)
-				logger.Warn(fmt.Sprintf("peer %s connection timeout, already removed", peer))
+				tickerHook(cluster, peer)
 			},
 		})
 	}
@@ -79,4 +77,54 @@ func (c *ClusterDatabase) Close() error {
 
 func (c *ClusterDatabase) AfterClientClose(client resp.Connection) error {
 	return c.db.AfterClientClose(client)
+}
+
+func (c *ClusterDatabase) NodeIsExist(node string) bool {
+	if _, ok := c.nodes[node]; ok {
+		return true
+	}
+	return false
+}
+
+func (c *ClusterDatabase) GetDB() database.Database {
+	return c.db
+}
+
+func (c *ClusterDatabase) GetPeerPicker() *consistentHash.NodeMap {
+	return c.peerPicker
+}
+
+func (c *ClusterDatabase) GetSelf() string {
+	return c.self
+}
+
+func (c *ClusterDatabase) GetNodes() map[string]any {
+	return c.nodes
+}
+
+func (c *ClusterDatabase) GetPeerConnection() map[string]*pool.ObjectPool {
+	return c.peerConnection
+}
+
+func (c *ClusterDatabase) AddPeer(peers ...string) {
+	for _, peer := range peers {
+		if _, ok := c.nodes[peer]; !ok {
+			c.nodes[peer] = nil
+			c.peerPicker.AddNode(peer)
+			c.peerConnection[peer] = pool.NewObjectPoolWithDefaultConfig(context.Background(), &connectionFactory{
+				Peer: peer,
+				TickerHook: func() {
+					tickerHook(c, peer)
+				},
+			})
+		}
+	}
+}
+
+func tickerHook(cluster *ClusterDatabase, peer string) {
+	// 连接超时触发，移除连接
+	delete(cluster.GetPeerConnection(), peer)
+	delete(cluster.GetNodes(), peer)
+	cluster.GetPeerPicker().RemoveNode(peer)
+	logger.Warn(fmt.Sprintf("peer %s connection timeout, already removed", peer))
 }
