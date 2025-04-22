@@ -23,7 +23,7 @@ import (
 const ErrClosed = "use of closed network connection" // 使用了一个已经关闭的连接
 const (
 	batchThreshold = 4096                 // 批量处理的阈值
-	flushInterval  = 1 * time.Millisecond // 定时刷新间隔
+	flushInterval  = 1 * time.Millisecond // 定时刷新间隔1ms
 )
 
 type RESPHandler struct {
