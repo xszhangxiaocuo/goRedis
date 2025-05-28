@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// RedisDb Redis内核
+// RedisDb 缓存数据库内核
 type RedisDb struct {
 	id     int                    // 数据库编号
 	data   interDict.Dict         // 数据库存储的键值对
@@ -95,7 +95,9 @@ func (db *RedisDb) SetId(id int) {
 }
 
 func (db *RedisDb) AddAof(line database.CmdLine) {
-	db.addAof(line)
+	if db.addAof != nil {
+		db.addAof(line)
+	}
 }
 
 func (db *RedisDb) SetAddAof(fn func(database.CmdLine)) {

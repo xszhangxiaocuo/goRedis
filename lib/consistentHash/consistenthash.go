@@ -11,7 +11,7 @@ type HashFunc func(data []byte) uint32 // 哈希函数
 
 type NodeMap struct {
 	hashFunc    HashFunc
-	nodeHashs   []int          // 节点哈希（位置）列表。！因为要对节点的哈希值进行排序，sort函数默认不能实现排序。解决方法1.类型转换2.将uint32实现sort接口
+	nodeHashs   []int          // 节点哈希（位置）列表。因为要对节点的哈希值进行排序，sort函数默认不能实现排序。解决方法1.类型转换2.将uint32实现sort接口
 	nodeHashMap map[int]string // string记录的节点名字、地址
 	replicas    int            // 虚拟节点倍数
 }

@@ -14,7 +14,7 @@ const pageSize = 1024
 type QuickList struct {
 	data *list.List
 	size int
-	mu   sync.Mutex
+	mu   sync.RWMutex
 }
 
 // iterator 迭代器，用于在 [-1, ql.Len()] 之间移动
@@ -168,6 +168,32 @@ func (ql *QuickList) Add(val any) {
 	backNode.Value = backPage
 }
 
+// BatchAdd 批量添加元素
+func (ql *QuickList) BatchAdd(vals ...any) {
+	ql.mu.Lock()
+	defer ql.mu.Unlock()
+
+	for _, val := range vals {
+		ql.size++
+		if ql.data.Len() == 0 {
+			page := make([]any, 0, pageSize)
+			page = append(page, val)
+			ql.data.PushBack(page)
+			continue
+		}
+		backNode := ql.data.Back()
+		backPage := backNode.Value.([]any)
+		if len(backPage) == cap(backPage) {
+			page := make([]any, 0, pageSize)
+			page = append(page, val)
+			ql.data.PushBack(page)
+		} else {
+			backPage = append(backPage, val)
+			backNode.Value = backPage
+		}
+	}
+}
+
 // find 返回给定索引的 page 和在 page 中的偏移量
 func (ql *QuickList) find(index int) *iterator {
 	if ql == nil {
@@ -211,8 +237,8 @@ func (ql *QuickList) find(index int) *iterator {
 }
 
 func (ql *QuickList) Get(index int) (val any) {
-	ql.mu.Lock()
-	defer ql.mu.Unlock()
+	ql.mu.RLock()
+	defer ql.mu.RUnlock()
 
 	iter := ql.find(index)
 	return iter.get()
@@ -231,9 +257,23 @@ func (ql *QuickList) Insert(index int, val any) {
 	defer ql.mu.Unlock()
 
 	if index == ql.size {
-		ql.mu.Unlock() // 避免死锁
-		ql.Add(val)
-		ql.mu.Lock()
+		ql.size++
+		if ql.data.Len() == 0 {
+			page := make([]any, 0, pageSize)
+			page = append(page, val)
+			ql.data.PushBack(page)
+			return
+		}
+		backNode := ql.data.Back()
+		backPage := backNode.Value.([]any)
+		if len(backPage) == cap(backPage) { // 一个 page 已满
+			page := make([]any, 0, pageSize)
+			page = append(page, val)
+			ql.data.PushBack(page)
+			return
+		}
+		backPage = append(backPage, val)
+		backNode.Value = backPage
 		return
 	}
 	iter := ql.find(index)

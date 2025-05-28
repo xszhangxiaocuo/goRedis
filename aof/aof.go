@@ -32,9 +32,9 @@ func NewAofHandler(database database.Database) (*AofHandler, error) {
 	handler := &AofHandler{}
 	handler.aofFileName = config.Properties.AppendFilename
 	handler.database = database
-	handler.LoadAof() //loadAof。当调用NewAofHandler时，是启动操作。先把写在硬盘上的aof文件恢复到内存中来。
+	handler.LoadAof() // 当调用NewAofHandler时，是启动操作。先把写在硬盘上的aof文件恢复到内存中来。
 
-	aofFile, err := os.OpenFile(handler.aofFileName, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0600) //
+	aofFile, err := os.OpenFile(handler.aofFileName, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, err
 	}
